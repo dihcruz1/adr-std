@@ -320,7 +320,7 @@ apaga a pasta `adr-std` do agente e copia a nova.
 **Versão 1.0 (esta):** skill, instalação em vários agentes e o comando `adr-std` (`install`, `update`, `uninstall`,
 `self-uninstall`, `status`, `agents`, `check`).
 
-**Planejado:**
+**Planejado** (detalhes e decisões em [`ROADMAP.md`](ROADMAP.md)):
 
 | Versão | Conteúdo |
 |---|---|
