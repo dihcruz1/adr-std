@@ -86,6 +86,40 @@ class CheckAdrTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0)
         self.assertNotIn("CONVENTIONS.md", result.stdout)
 
+    def test_project_style_labels_are_accepted(self):
+        text = self.fixture_text.replace("| **Data da decisão** |", "| **Data** |").replace(
+            "| **Concerns e aspectos** |", "| **Preocupações (concerns)** |"
+        )
+        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        result = run(str(adr))
+        self.assertIn("[OK  ] A4", result.stdout)
+        self.assertIn("[OK  ] D4", result.stdout)
+        self.assertEqual(result.returncode, 0)
+
+    def test_placeholders_inside_inline_code_are_not_leftovers(self):
+        text = self.fixture_text.replace(
+            "A sessão de conversa fica em memória",
+            "Specs ficam em `docs/specs/<AAAA-MM-DD>-<nome>/`. A sessão de conversa fica em memória",
+        )
+        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        self.assertIn("[OK  ] A7", run(str(adr)).stdout)
+
+    def test_pending_approval_with_explanation_is_ok_only_when_not_accepted(self):
+        pending = self.fixture_text.replace(
+            "| **Aprovado em** | 2026-09-10 |", "| **Aprovado em** | pendente — falta a aprovação do solicitante |"
+        )
+        proposed = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", pending.replace("| **Status** | Aceito |", "| **Status** | Proposto |"))
+        self.assertIn("[OK  ] A5", run(str(proposed)).stdout)
+        accepted = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", pending)
+        self.assertIn("[FALHA] A5", run(str(accepted)).stdout)
+
+    def test_real_placeholder_outside_code_is_still_a_leftover(self):
+        text = self.fixture_text.replace(
+            "A sessão de conversa fica em memória", "<descreva o contexto>. A sessão de conversa fica em memória"
+        )
+        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        self.assertIn("[FALHA] A7", run(str(adr)).stdout)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -29,6 +29,14 @@ STATUS = re.compile(
 HEADER_ROW = re.compile(r"^\|\s*\*\*(.+?)\*\*\s*\|\s*(.*?)\s*\|\s*$")
 SECTION = re.compile(r"^##\s+(.+?)\s*$")
 PLACEHOLDER = re.compile(r"<(?!https?://)[^<>\n]+>")
+INLINE_CODE = re.compile(r"`[^`\n]*`")
+# Rótulos do estilo MADR do projeto que equivalem aos rótulos da skill.
+HEADER_ALIASES = {"Preocupações (concerns)": "Concerns e aspectos", "Data": "Data da decisão"}
+
+
+def has_placeholder(text: str) -> bool:
+    """Marcador de template (<...>) fora de código em linha: `<AAAA-MM-DD>` num caminho não conta."""
+    return bool(PLACEHOLDER.search(INLINE_CODE.sub("", text)))
 RATIONALE_MARKER = re.compile(r"\b(porque|pois|justificativa|rationale|because)\b", re.IGNORECASE)
 IGNORED_FILES = {"template-madr.md", "_template-madr.md", "CONVENTIONS.md", "README.md"}
 
@@ -54,7 +62,8 @@ def parse(text: str) -> tuple[dict[str, str], dict[str, str]]:
         if current is None:
             h = HEADER_ROW.match(line)
             if h:
-                header[h.group(1).strip()] = h.group(2).strip()
+                label = h.group(1).strip()
+                header.setdefault(HEADER_ALIASES.get(label, label), h.group(2).strip())
         else:
             sections[current].append(line)
     return header, {k: "\n".join(v) for k, v in sections.items()}
@@ -78,7 +87,7 @@ def meaningful(body: str) -> str:
     guides = guide_lines(lines)
     lines = [
         ln for i, ln in enumerate(lines)
-        if i not in guides and ln.strip() and not PLACEHOLDER.search(ln)
+        if i not in guides and ln.strip() and not has_placeholder(ln)
     ]
     return "\n".join(lines).strip()
 
@@ -91,7 +100,7 @@ def find_section(sections: dict[str, str], prefix: str) -> str | None:
 
 
 def filled(value: str | None) -> bool:
-    return bool(value) and not PLACEHOLDER.search(value)
+    return bool(value) and not has_placeholder(value)
 
 
 def check(path: Path, name_pattern: re.Pattern[str]) -> list[Result]:
@@ -113,7 +122,7 @@ def check(path: Path, name_pattern: re.Pattern[str]) -> list[Result]:
     r.append(Result("A4", "N-DEVERIA", bool(DATE.match(header.get("Data da decisão", ""))), "Data da decisão em AAAA-MM-DD"))
 
     approved = header.get("Aprovado em", "")
-    ok_a5 = bool(DATE.match(approved)) or (approved == "pendente" and not status.startswith("Aceito"))
+    ok_a5 = bool(DATE.match(approved)) or (approved.startswith("pendente") and not status.startswith("Aceito"))
     r.append(Result("A5", "N-DEVERIA", ok_a5, "Aprovado em preenchido (data obrigatória se Aceito)"))
 
     modified = header.get("Modificado em", "")
@@ -123,7 +132,7 @@ def check(path: Path, name_pattern: re.Pattern[str]) -> list[Result]:
     guides = guide_lines(all_lines)
     leftovers = [
         i + 1 for i, ln in enumerate(all_lines)
-        if i in guides or PLACEHOLDER.search(ln)
+        if i in guides or has_placeholder(ln)
     ]
     r.append(Result("A7", "S", not leftovers, "sem instruções do template restantes"
                     + (f" (linhas {leftovers[:5]})" if leftovers else "")))
