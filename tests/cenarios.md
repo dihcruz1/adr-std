@@ -8,8 +8,8 @@ cenários passam em todos os agentes usados.
 
 ```bash
 cd /Fusiondev/Code/Skills/adr-std
-python3 scripts/check_adr.py tests/fixtures/0001-cache-de-sessao-em-redis.md   # esperado: saída 0
-python3 scripts/check_adr.py references/template-madr.md                        # esperado: saída 1
+python3 skill/scripts/check_adr.py tests/fixtures/0001-cache-de-sessao-em-redis.md   # esperado: saída 0
+python3 skill/scripts/check_adr.py skill/references/template-madr.md             # esperado: saída 1
 ```
 
 ## C1 — Ativação

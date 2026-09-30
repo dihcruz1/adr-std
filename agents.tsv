@@ -1,0 +1,17 @@
+# Agentes suportados pelo adr-std. Colunas separadas por TAB; caminhos relativos a ~ (%USERPROFILE% no Windows).
+# id	nome	detecta (pasta existe)	pasta de skills	le compartilhada (~/.agents/skills: sim|nao|-)
+claude-code	Claude Code	.claude	.claude/skills	nao
+codex	Codex	.codex	.codex/skills	nao
+gemini-cli	Gemini CLI	.gemini	.gemini/skills	sim
+opencode	OpenCode	.config/opencode	.config/opencode/skills	sim
+antigravity	Antigravity	.gemini/antigravity	.gemini/antigravity/skills	nao
+continue	Continue	.continue	.continue/skills	nao
+cursor	Cursor	.cursor	.cursor/skills	nao
+github-copilot	GitHub Copilot	.copilot	.copilot/skills	nao
+windsurf	Windsurf	.codeium/windsurf	.codeium/windsurf/skills	nao
+roo	Roo Code	.roo	.roo/skills	nao
+kiro-cli	Kiro CLI	.kiro	.kiro/skills	nao
+goose	Goose	.config/goose	.config/goose/skills	nao
+junie	Junie	.junie	.junie/skills	nao
+amp	Amp	.config/agents	.config/agents/skills	nao
+universal	Cline, Zed, Warp e outros	.agents	.agents/skills	-
