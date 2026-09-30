@@ -107,6 +107,7 @@
   - **GREEN:** implementação espelhando o bash.
   - **REFACTOR:** conferir mensagens idênticas às do bash.
   - **Validação:** `pwsh -Command "Invoke-Pester tests/test_cli.ps1"` (CI Windows; teste humano pendente)
+  - **Evidência parcial (2026-09-30):** escritos `bin/adr-std.ps1`, `bin/adr-std.cmd`, `install.ps1` e `tests/test_cli.ps1` (Pester, 22 casos espelhando o bash). **Não executados:** esta máquina não tem PowerShell (`pwsh` ausente), então não há RED nem GREEN reais. A tarefa só fecha quando o Pester passar no CI do Windows (ou em máquina com Windows) e o solicitante ou colega validar o `.bat` de duplo clique. Riscos conhecidos: sintaxe PowerShell não verificada; `self-uninstall` no Windows não consegue apagar o `adr-std.ps1` em execução (remove o restante); `irm | iex` não repassa argumentos, então cai no menu.
 
 ## 7. Documentação
 
