@@ -1,0 +1,90 @@
+---
+name: adr-std
+description: Cria, revisa, numera, relaciona e reorganiza ADRs (Architecture Decision Records, registros de decisão de arquitetura) seguindo a ISO/IEC/IEEE 42010:2022 (cláusula 6.10) com template MADR estendido, e audita a conformidade de descrições de arquitetura. Use quando o usuário pedir para criar, escrever, revisar, auditar, corrigir, renumerar ou organizar ADRs ou decisões de arquitetura, ou perguntar o que a norma 42010 exige. Creates, reviews and organizes ADRs following ISO/IEC/IEEE 42010:2022; independent skill, not endorsed by ISO, IEC or IEEE.
+---
+
+# adr-std
+
+Skill para registrar decisões de arquitetura em conformidade com a **ISO/IEC/IEEE 42010:2022**.
+Funciona em qualquer agente que leia `SKILL.md`. Documentação e respostas em pt-BR.
+
+## Antes de tudo
+
+1. Leia `references/guia-42010.md`, seções **1, 2, 3 e 15**. Elas definem o peso das regras
+   (DEVE, DEVERIA, PODE), os limites da norma e o que é proibido afirmar.
+2. Procure as regras do projeto: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` e a convenção de ADRs
+   (por exemplo `docs/architecture/ADR/CONVENTIONS.md`). Onde a regra do projeto for mais restritiva,
+   ela prevalece. Onde conflitar com a norma, **avise o usuário** e peça decisão.
+3. Ao citar uma exigência, diga a origem: **norma** (com a cláusula), **projeto** ou **skill**.
+
+## Tarefas
+
+### Criar um ADR
+
+1. Aplique os critérios de decisão essencial (guia, seção 7.2). Se nenhum se aplicar, avise.
+2. Confirme que é **uma** decisão. Duas decisões viram dois ADRs relacionados.
+3. Leia os ADRs existentes para achar relações e evitar duplicata.
+4. Descubra o próximo número pela convenção do projeto; na falta dela, `NNNN-` com 4 dígitos
+   (o maior número existente + 1; nunca reutilize número).
+5. Pergunte ao usuário o que faltar: decisores, autoridade que aprova, data, concerns, stakeholders,
+   alternativas reais e o motivo de cada rejeição. **Não invente.**
+6. Copie `references/template-madr.md` para `NNNN-<titulo-em-kebab-case>.md` e preencha.
+7. Status inicial: `Proposto`. Só o decisor aprova; o agente nunca marca `Aceito` por conta própria.
+8. Rode a verificação (seção "Verificar") e corrija o que falhar.
+9. Mostre o resultado ao usuário com a lista do que ficou `pendente`.
+
+Regras detalhadas: guia, seção 12.
+
+### Revisar ou reorganizar ADRs
+
+1. Rode a verificação em todos os ADRs e leia cada um contra `references/checklist.md`.
+2. Não altere o sentido de ADR aceito: mudança de decisão exige novo ADR que o substitua.
+3. Renumerar ou renomear arquivos quebra links: liste as referências afetadas, **mostre o plano** e
+   só execute com autorização.
+4. Mantenha relações recíprocas (se A substitui B, B fica `Substituído por ADR-A`).
+5. Tire o andamento de implementação do campo Status (ele descreve a decisão, não a execução).
+6. Entregue um relatório: o que mudou, o que falta, e a origem de cada exigência.
+
+Regras detalhadas: guia, seção 13.
+
+### Auditar a descrição de arquitetura completa
+
+Só quando o usuário pedir conformidade da AD, não de um ADR. Siga o guia, seção 14 (cláusula 6
+inteira). ADRs sozinhos cobrem a 6.10 e parte da 6.1; **não bastam** para alegar conformidade da AD.
+
+### Responder dúvidas sobre a norma
+
+Use o guia (seções 4 a 11) e cite a cláusula. Se o guia não cobrir, diga que não cobre; não invente.
+
+## Verificar
+
+Se o agente puder executar código:
+
+```bash
+python3 <pasta-da-skill>/scripts/check_adr.py <arquivo-ou-pasta-de-ADRs>
+# numeração diferente da padrão, por exemplo "1-titulo.md":
+python3 <pasta-da-skill>/scripts/check_adr.py <pasta> --name-pattern '^(\d+)-.+\.md$'
+```
+
+Saída: `0` passou; `1` falhou requisito da norma (N-DEVE); `2` falharam só recomendações ou regras
+da skill. O script cobre os itens `[auto]` do checklist; os demais exigem leitura. Uma falha em B4
+pode ser falso negativo quando a justificativa está referenciada em outra seção: confirme lendo.
+Se não puder executar código, aplique o checklist inteiro à mão.
+
+## Proibições (resumo; lista completa no guia, seção 15)
+
+- Não afirmar conformidade, certificação ou endosso da ISO; não alegar conformidade da AD só com ADRs.
+- Não copiar texto da norma: resuma e cite a cláusula (por exemplo "42010:2022, 6.10.2").
+- Não juntar duas decisões num ADR; não apagar ADR aceito ou rejeitado.
+- Não inventar decisores, datas, alternativas ou justificativas.
+- Não fazer commit, push ou renomeação em massa sem autorização expressa.
+
+## Arquivos
+
+| Arquivo | Uso |
+|---|---|
+| `references/guia-42010.md` | Resumo detalhado de toda a norma e regras de criação, revisão e auditoria |
+| `references/template-madr.md` | Template do ADR, com os campos da 6.10 |
+| `references/checklist.md` | Checklist de conformidade, com a origem de cada item |
+| `scripts/check_adr.py` | Verificação automática dos itens `[auto]` (Python 3, só biblioteca padrão) |
+| `tests/` | Cenários de validação e ADR de exemplo (não é usado pelo agente em tempo de execução) |
