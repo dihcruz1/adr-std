@@ -1,0 +1,12 @@
+# Ações da skill adr-std expostas como comando no agente (v1.1). Colunas separadas por TAB.
+# acao	descricao-curta
+create	Cria um ADR novo em conversa guiada
+supersede	Cria o ADR que substitui outro
+review	Revisa ADRs contra a norma e o checklist
+organize	Reorganiza numeracao, nomes, status e relacoes
+link	Registra uma relacao entre dois ADRs
+audit	Audita a descricao de arquitetura completa
+check	Roda a verificacao automatica
+ask	Responde duvidas sobre a norma
+new	Cria o esqueleto de um ADR sem perguntas
+list	Lista os ADRs de uma pasta

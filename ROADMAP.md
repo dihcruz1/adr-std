@@ -6,7 +6,7 @@ Visão curta das versões. O detalhe de cada versão fica na sua spec em `docs/s
 | Versão | Conteúdo | Status | Spec |
 |---|---|---|---|
 | **1.0** | Skill (guia da 42010, template, checklist, `check_adr.py`); instalação em vários agentes; comando `adr-std` (`install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`); pacote zip; README | Em execução; falta Windows validado, publicação e validação nos agentes | [2026-09-30-adr-std-v1-0](docs/specs/2026-09-30-adr-std-v1-0/) |
-| **1.1** | Comandos por ação dentro do agente: `/adr-std-create`, `-supersede`, `-review`, `-organize`, `-link`, `-audit`, `-check`, `-ask`, `-new`, `-list`; conversa guiada com `--ask N` e `--quick` | Rascunho de requisitos (Gate 1 pendente) | [2026-09-30-adr-std-v1-1-comandos-no-agente](docs/specs/2026-09-30-adr-std-v1-1-comandos-no-agente/) |
+| **1.1** | Comandos por ação dentro do agente: `/adr-std-create`, `-supersede`, `-review`, `-organize`, `-link`, `-audit`, `-check`, `-ask`, `-new`, `-list`; conversa guiada com `--ask N` e `--quick` | Em andamento (Gate 2 aprovado; implementação em curso) | [2026-09-30-adr-std-v1-1-comandos-no-agente](docs/specs/2026-09-30-adr-std-v1-1-comandos-no-agente/) |
 | **1.2** | Comandos mecânicos no terminal, em Python: `adr-std new`, `list`, `link`, `organize --dry-run` (e o `check` que já existe), com os mesmos nomes dos comandos do agente | Decisões registradas abaixo; spec ainda não aberta | — |
 | **1.3** | Comandos de conversa no terminal (`adr-std create`, `supersede`, `review`, `audit`, `ask`) que abrem um agente escolhido; agente padrão (`adr-std config agent`) e menu com memória | Decisões registradas abaixo; spec ainda não aberta | — |
 
