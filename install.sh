@@ -17,7 +17,6 @@ BIN_DIR="$HOME/.local/bin"
 PATH_MARK="# adr-std"
 
 err() { echo "adr-std: $*" >&2; }
-die() { err "$@"; exit 1; }
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" 2>/dev/null && pwd)"
 
@@ -87,7 +86,7 @@ fi
 # --- cópia da fonte e do comando ----------------------------------------------
 
 mkdir -p "$DATA_DIR" "$BIN_DIR" "$CONFIG_DIR"
-rm -rf "$DATA_DIR/skill" "$DATA_DIR/bin"
+rm -rf "${DATA_DIR:?}/skill" "${DATA_DIR:?}/bin"
 cp -R "$SRC/skill" "$DATA_DIR/skill"
 cp -R "$SRC/bin" "$DATA_DIR/bin"
 cp "$SRC/agents.tsv" "$SRC/VERSION" "$SRC/install.sh" "$DATA_DIR/"
@@ -136,6 +135,7 @@ case ":$PATH:" in
         if [ "$(basename "$profile")" = "config.fish" ]; then
           printf 'fish_add_path %s  %s\n' "$BIN_DIR" "$PATH_MARK" >> "$profile"
         else
+          # shellcheck disable=SC2016 # $PATH deve ficar literal: expande quando o perfil for lido, não agora
           printf 'export PATH="%s:$PATH"  %s\n' "$BIN_DIR" "$PATH_MARK" >> "$profile"
         fi
         state_put_line "$profile"

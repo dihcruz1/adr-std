@@ -97,7 +97,6 @@ ALL=0
 LINK=0
 DRY=0
 REQ_VERSION=""
-TARGET_ARGS=()
 
 parse_args() {
   local tok part
@@ -265,7 +264,7 @@ cmd_update() {
   parse_args "$@"
   local -a ids=()
   mapfile -t ids < <(state_agents | cut -f1)
-  local id extra
+  local id
   for id in "${AGENTS[@]+"${AGENTS[@]}"}"; do
     printf '%s\n' "${ids[@]+"${ids[@]}"}" | grep -qxF -- "$id" || ids+=("$id")
   done
@@ -366,7 +365,8 @@ cmd_agents() {
   while IFS=$'\t' read -r id name _ dir _; do
     local mark="-"
     is_detected "$id" && mark="✔ encontrado"
-    printf '  %-15s %-27s %-30s %s\n' "$id" "$name" "~/$dir" "$mark"
+    # shellcheck disable=SC2088 # "~/..." é texto exibido ao usuário, não um caminho expandido
+    printf '  %-15s %-27s %-30s %s\n' "$id" "$name" "~/${dir}" "$mark"
   done < <(agent_rows)
 }
 

@@ -5,7 +5,7 @@
 # Sai com código diferente de zero se qualquer verificação falhar.
 
 set -u
-cd "$(dirname "${BASH_SOURCE[0]}")/.."
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 fail=0
 bad() { echo "GATE FALHOU: $*" >&2; fail=1; }
