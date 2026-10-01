@@ -44,6 +44,48 @@ Sempre que criar ou modificar um ADR **ou** uma Spec como parte de qualquer aç�
 5. Ao concluir a ação principal, informe ao usuário: _"ROADMAP atualizado: [linha afetada]."_
 6. Se o `ROADMAP.md` não existir na pasta de ADRs, crie-o com a estrutura definida no ADR-0002.
 
+## Comandos de ação (v1.1)
+
+Os comandos `/adr-std-<ação>` (Claude Code, Gemini CLI, OpenCode, Continue) e `$adr-std <ação>`
+(Codex) chamam a skill com a ação já definida — o arquivo de comando não tem regra nenhuma, só a
+chamada. As regras abaixo valem para a ação, seja ela chamada pelo comando específico ou deduzida
+de `/adr-std <texto livre>`.
+
+### `create` e `supersede` (conversa guiada)
+
+1. Resuma o que entendeu do pedido antes de perguntar qualquer coisa.
+2. Avise se a decisão parece trivial, se parecem ser duas decisões, ou se já existe ADR relacionado.
+3. Conduza perguntas em rodadas de até **N** perguntas (opção `--ask N`, nomes curtos `-a N`):
+   padrão **3**; fora da faixa 1 a 10, use o valor mais próximo e avise o motivo.
+4. Com `--quick` (`-k`): não faça nenhuma pergunta — monte o ADR só com a descrição recebida,
+   marque como `pendente` tudo que faltar (inclusive Decisão e Justificativa, exigidas pela norma);
+   ao final, liste as pendências obrigatórias pela norma, as sugestões e o comando para completar
+   (`/adr-std-review <arquivo>`). Se `--quick` vier sem nenhuma descrição, avise e **não crie** o
+   arquivo.
+5. Se `--quick` e `--ask` vierem juntos, siga o `--quick` e avise que ignorou o `--ask`.
+6. Ao usuário dizer "gere com o que temos" (ou equivalente), encerre as perguntas e grave o
+   rascunho com as pendências marcadas.
+7. Sugestões (alternativa não citada, stakeholder esquecido, risco, ADR relacionado, decisão
+   derivada, como verificar) aparecem marcadas como sugestão; nenhuma entra no ADR sem o usuário
+   aceitar.
+8. Nunca invente decisores, datas, alternativas ou justificativas; o que faltar fica `pendente`.
+9. Status inicial sempre `Proposto`; só o decisor aprova.
+10. `supersede` segue este mesmo fluxo e estas mesmas opções, além de: marcar o ADR antigo como
+    `Substituído por ADR-NNNN`, atualizar "Modificado em" do antigo, e nunca apagar o ADR antigo.
+
+### `new` (esqueleto sem perguntas)
+
+Cria um único arquivo a partir de `references/template-madr.md`, com o próximo número pela
+convenção do projeto, o ID, o título recebido, status `Proposto`, "Data da decisão" com a data de
+hoje e todos os demais campos como `pendente` — **sem perguntas** e sem alterar nenhum outro
+arquivo. Se o título vier vazio, avise e não crie o arquivo.
+
+### `list` (listagem sem alterar arquivos)
+
+Lista os ADRs da pasta indicada (ou da pasta de ADRs do projeto, se nenhuma for indicada) com ID,
+título, status e data da decisão — sem alterar nenhum arquivo. Se a pasta não existir ou não tiver
+ADRs, diga isso e não crie a pasta.
+
 ## Tarefas
 
 ### Criar um ADR

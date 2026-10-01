@@ -151,6 +151,20 @@ class CheckAdrTest(unittest.TestCase):
         ]:
             self.assertIn(marker, section)
 
+    def test_skill_md_documents_action_commands(self):
+        text = SKILL_MD.read_text(encoding="utf-8")
+        section = text.split("## Comandos de ação (v1.1)")[1].split("## Tarefas")[0]
+        for marker in [
+            "--ask",
+            "--quick",
+            "pendente",
+            "sugestão",
+            "Proposto",
+            "nunca apagar",
+            "sem perguntas",
+        ]:
+            self.assertIn(marker, section)
+
     def test_check_accepts_custom_folder(self):
         custom = self.tmp / "outra-pasta" / "custom"
         custom.mkdir(parents=True)
