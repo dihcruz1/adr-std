@@ -33,6 +33,21 @@ test_agents_file() {
   grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' "$ROOT/VERSION" || fail "VERSION fora do formato X.Y.Z"
 }
 
+test_command_tables() {
+  local cf="$ROOT/commands.tsv" tf="$ROOT/command_targets.tsv"
+  assert_file "$cf" || return 1
+  assert_file "$tf" || return 1
+  local rows; rows=$(grep -v '^#' "$cf" | grep -c .)
+  assert_eq "$rows" "10" "ações em commands.tsv" || return 1
+  local bad; bad=$(grep -v '^#' "$cf" | grep . | awk -F'\t' 'NF != 2' | wc -l)
+  assert_eq "$bad" "0" "linhas de commands.tsv sem 2 colunas" || return 1
+  for id in claude-code gemini-cli opencode continue; do
+    grep -v '^#' "$tf" | grep . | cut -f1 | grep -qxF "$id" || fail "command_targets.tsv sem $id" || return 1
+  done
+  bad=$(grep -v '^#' "$tf" | grep . | awk -F'\t' 'NF != 4' | wc -l)
+  assert_eq "$bad" "0" "linhas de command_targets.tsv sem 4 colunas"
+}
+
 CLI="$ROOT/bin/adr-std"
 
 test_version() {
@@ -208,6 +223,55 @@ test_install_link() {
 }
 
 state_get_mode() { awk -F'\t' '$1 == "mode" { print $2 }' "$(state_file)"; }
+
+test_install_commands() {
+  mkdir -p "$HOME/.claude"
+  "$CLI" install claude-code >/dev/null || fail "install falhou" || return 1
+  assert_file "$HOME/.claude/commands/adr-std-create.md" || return 1
+  assert_file "$HOME/.claude/commands/adr-std-list.md" || return 1
+  local n; n=$(find "$HOME/.claude/commands" -name 'adr-std-*.md' | wc -l)
+  assert_eq "$n" "10" "arquivos de comando criados" || return 1
+  assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" '$ARGUMENTS' || return 1
+  assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" 'ação "create"' || return 1
+  grep -qP '^command\tclaude-code\t' "$(state_file)" || fail "estado sem registro de comando"
+}
+
+test_install_no_commands() {
+  mkdir -p "$HOME/.claude"
+  "$CLI" install --no-commands claude-code >/dev/null || fail "install falhou" || return 1
+  assert_no_file "$HOME/.claude/commands/adr-std-create.md" || return 1
+  grep -qP '^command\t' "$(state_file)" 2>/dev/null && fail "estado com comando apesar de --no-commands"
+  return 0
+}
+
+test_install_commands_preserve_foreign() {
+  mkdir -p "$HOME/.claude/commands"
+  echo "comando do usuário" > "$HOME/.claude/commands/adr-std-create.md"
+  local out; out="$("$CLI" install claude-code 2>&1)" || fail "install falhou" || return 1
+  assert_eq "$(cat "$HOME/.claude/commands/adr-std-create.md")" "comando do usuário" || return 1
+  assert_contains "$out" "adr-std-create" || return 1
+  assert_file "$HOME/.claude/commands/adr-std-list.md"
+}
+
+test_install_commands_all_agents() {
+  mkdir -p "$HOME/.gemini" "$HOME/.continue"
+  "$CLI" install gemini-cli continue >/dev/null || fail "install falhou" || return 1
+  assert_file "$HOME/.gemini/commands/adr-std-create.toml" || return 1
+  assert_contains "$(cat "$HOME/.gemini/commands/adr-std-create.toml")" '{{args}}' || return 1
+  assert_file "$HOME/.continue/prompts/adr-std-create.prompt" || return 1
+  assert_contains "$(cat "$HOME/.continue/prompts/adr-std-create.prompt")" '{{{ input }}}'
+}
+
+test_uninstall_removes_commands() {
+  mkdir -p "$HOME/.claude"
+  "$CLI" install claude-code >/dev/null || fail "install falhou" || return 1
+  echo "outro" > "$HOME/.claude/commands/alheio.md"
+  "$CLI" uninstall claude-code >/dev/null || fail "uninstall falhou" || return 1
+  assert_no_file "$HOME/.claude/commands/adr-std-create.md" || return 1
+  assert_file "$HOME/.claude/commands/alheio.md" || return 1
+  grep -qP '^command\t' "$(state_file)" 2>/dev/null && fail "comandos ainda no estado"
+  return 0
+}
 
 test_check() {
   local out
