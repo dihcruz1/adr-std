@@ -59,7 +59,7 @@ Describe 'version, help e agents' {
     }
     It 'help lista os comandos e comando inválido falha' {
         $r = Invoke-Cli @('help')
-        foreach ($c in 'install', 'update', 'uninstall', 'self-uninstall', 'status', 'agents', 'check', 'version') { $r.Output | Should -Match $c }
+        foreach ($c in 'install', 'update', 'uninstall', 'self-uninstall', 'status', 'agents', 'check', 'new', 'list', 'link', 'organize', 'version') { $r.Output | Should -Match $c }
         (Invoke-Cli @('comando-inexistente')).Code | Should -Be 2
     }
     It 'agents marca os agentes encontrados' {
@@ -208,6 +208,36 @@ Describe 'comandos de ação (v1.1)' {
         (Invoke-Cli @('uninstall', 'claude-code')).Code | Should -Be 0
         Test-Path (Join-Path $dir 'adr-std-create.md') | Should -BeFalse
         Test-Path (Join-Path $dir 'alheio.md') | Should -BeTrue
+    }
+}
+
+Describe 'new, list, link e organize (v1.2)' -Skip:(-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
+    It 'new e list criam e listam o ADR' {
+        $dir = Join-Path $Tmp 'adrs'
+        $r = Invoke-Cli @('new', 'Usar fila', '--path', $dir)
+        $r.Code | Should -Be 0
+        Test-Path (Join-Path $dir '0001-usar-fila.md') | Should -BeTrue
+        $l = Invoke-Cli @('list', '--path', $dir)
+        $l.Output | Should -Match 'Usar fila'
+        $l.Output | Should -Match 'Proposto'
+    }
+    It 'link grava a relação recíproca e organize --dry-run mostra o plano' {
+        $dir = Join-Path $Tmp 'adrs'
+        Invoke-Cli @('new', 'Um', '--path', $dir) | Out-Null
+        Invoke-Cli @('new', 'Dois', '--path', $dir) | Out-Null
+        (Invoke-Cli @('link', 'ADR-0001', 'restringe', 'ADR-0002', '--path', $dir)).Code | Should -Be 0
+        Get-Content -Raw -Encoding UTF8 (Join-Path $dir '0002-dois.md') | Should -Match 'é restringido por ADR-0001'
+        Rename-Item (Join-Path $dir '0002-dois.md') '0005-dois.md'
+        (Invoke-Cli @('organize', '--dry-run', '--path', $dir)).Output | Should -Match '0005-dois.md -> 0002-dois.md'
+    }
+}
+
+Describe 'instalador copia as tabelas de comandos' {
+    It 'install.ps1 copia commands.tsv e command_targets.tsv' {
+        $r = Invoke-Installer @('--agent', 'claude-code')
+        $r.Code | Should -Be 0
+        Test-Path (Join-Path $Tmp 'local/adr-std/commands.tsv') | Should -BeTrue
+        Test-Path (Join-Path $Tmp 'local/adr-std/command_targets.tsv') | Should -BeTrue
     }
 }
 

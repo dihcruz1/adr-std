@@ -462,6 +462,62 @@ test_gate_checks_tag_version() {
 }
 
 # ---------------------------------------------------------------------------
+# v1.2: comandos mecânicos no terminal
+
+test_help_lists_new_commands() {
+  local out; out="$("$CLI" help)" || return 1
+  for c in new list link organize; do
+    assert_contains "$out" "  $c " || return 1
+  done
+}
+
+test_cli_new_list() {
+  local out
+  out="$("$CLI" new "Usar fila" --path adrs)" || fail "new falhou" || return 1
+  assert_contains "$out" "0001-usar-fila.md" || return 1
+  assert_file adrs/0001-usar-fila.md || return 1
+  out="$("$CLI" list --path adrs)" || fail "list falhou" || return 1
+  assert_contains "$out" "Usar fila" || return 1
+  assert_contains "$out" "Proposto"
+}
+
+test_cli_link_organize() {
+  "$CLI" new "Um" --path adrs >/dev/null && "$CLI" new "Dois" --path adrs >/dev/null || return 1
+  "$CLI" link ADR-0001 restringe ADR-0002 --path adrs >/dev/null || fail "link falhou" || return 1
+  grep -qF 'é restringido por ADR-0001' adrs/0002-dois.md || fail "relação recíproca ausente" || return 1
+  mv adrs/0002-dois.md adrs/0005-dois.md
+  local out; out="$("$CLI" organize --dry-run --path adrs)" || fail "organize falhou" || return 1
+  assert_contains "$out" "0005-dois.md -> 0002-dois.md" || return 1
+  assert_file adrs/0005-dois.md
+}
+
+test_cli_no_python() {
+  local cmd out code
+  for cmd in new list link organize; do
+    out="$(PATH="/nao/existe" /bin/bash "$CLI" "$cmd" x 2>&1)"; code=$?
+    assert_eq "$code" "6" "código de $cmd sem Python" || return 1
+    assert_contains "$out" "Python" || return 1
+    assert_contains "$out" "checklist" || return 1
+  done
+}
+
+test_installer_copies_command_tables() {
+  mkdir -p "$HOME/.claude"
+  installer --agent claude-code >/dev/null 2>&1 < /dev/null || fail "instalação falhou" || return 1
+  assert_file "$HOME/.local/share/adr-std/commands.tsv" || return 1
+  assert_file "$HOME/.local/share/adr-std/command_targets.tsv" || return 1
+}
+
+test_package_has_command_tables() {
+  local out="$PWD/out"
+  ( cd "$ROOT" && bash ./package.sh "$out" ) >/dev/null 2>&1 || fail "package.sh falhou" || return 1
+  local list; list="$(unzip -Z1 "$out/adr-std.zip")"
+  for f in commands.tsv command_targets.tsv skill/scripts/adr_cli.py; do
+    printf '%s\n' "$list" | grep -qxF "$f" || fail "zip sem $f" || return 1
+  done
+}
+
+# ---------------------------------------------------------------------------
 # executor
 
 run_test() {
