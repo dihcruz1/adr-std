@@ -1,4 +1,4 @@
-# Instalador do adr-std (Windows).
+﻿# Instalador do adr-std (Windows).
 #
 # Instala o comando "adr-std" no seu usuário e depois executa "adr-std install".
 # Não pede administrador e só escreve dentro do seu perfil.
@@ -11,7 +11,6 @@
 
 $ErrorActionPreference = 'Stop'
 
-$UserHome  = if ($env:ADR_STD_HOME) { $env:ADR_STD_HOME } else { $env:USERPROFILE }
 $LocalApp  = if ($env:ADR_STD_LOCALAPPDATA) { $env:ADR_STD_LOCALAPPDATA } else { $env:LOCALAPPDATA }
 $RoamApp   = if ($env:ADR_STD_APPDATA) { $env:ADR_STD_APPDATA } else { $env:APPDATA }
 $DataDir   = Join-Path $LocalApp 'adr-std'
@@ -99,7 +98,7 @@ if ($userPath) { $already = @($userPath -split ';') -contains $BinDir }
 if (-not $already -and -not $env:ADR_STD_NO_PATH) {
     Write-Host "A pasta $BinDir não está no PATH; sem isso o comando adr-std não será encontrado."
     $reply = $null
-    if ($env:ADR_STD_ANSWER -ne $null) { $reply = $env:ADR_STD_ANSWER }
+    if ($null -ne $env:ADR_STD_ANSWER) { $reply = $env:ADR_STD_ANSWER }
     elseif ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) { $reply = Read-Host "Posso acrescentá-la ao PATH do seu usuário? [s/N]" }
     if ($reply -match '^(s|S|sim|Sim|y|Y)$') {
         $new = if ($userPath) { "$userPath;$BinDir" } else { $BinDir }

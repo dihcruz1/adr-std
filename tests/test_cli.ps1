@@ -1,4 +1,4 @@
-# Testes do comando adr-std e do instalador para Windows (Pester 5).
+﻿# Testes do comando adr-std e do instalador para Windows (Pester 5).
 # Uso: Invoke-Pester -Path tests/test_cli.ps1 -CI
 # Cada teste roda num perfil temporário (ADR_STD_HOME, ADR_STD_LOCALAPPDATA, ADR_STD_APPDATA); o perfil real nunca é usado.
 # Espelha tests/test_cli.sh. Escrito sem poder executar no ambiente de desenvolvimento: validar no CI do Windows.

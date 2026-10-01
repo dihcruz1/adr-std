@@ -1,4 +1,4 @@
-# adr-std — instala, atualiza e gerencia a skill adr-std nos agentes de código (Windows).
+﻿# adr-std — instala, atualiza e gerencia a skill adr-std nos agentes de código (Windows).
 # Mesma lógica de bin/adr-std (bash). Compatível com Windows PowerShell 5.1 e PowerShell 7+.
 # https://github.com/dihcruz1/adr-std
 
@@ -40,7 +40,7 @@ function ConvertTo-LocalPath([string]$Base, [string]$Relative) {
     Join-Path $Base ($Relative -replace '/', [IO.Path]::DirectorySeparatorChar)
 }
 
-function Get-Agents {
+function Get-AgentRow {
     $f = Join-Path $Src 'agents.tsv'
     if (-not (Test-Path $f)) { Stop-AdrStd 1 "agents.tsv não encontrado em $Src" }
     Get-Content $f -Encoding UTF8 | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object {
@@ -49,16 +49,16 @@ function Get-Agents {
     }
 }
 
-function Get-Agent([string]$Id) { Get-Agents | Where-Object { $_.Id -eq $Id } | Select-Object -First 1 }
+function Get-Agent([string]$Id) { Get-AgentRow | Where-Object { $_.Id -eq $Id } | Select-Object -First 1 }
 function Test-Agent([string]$Id) { $null -ne (Get-Agent $Id) }
 function Test-Detected([string]$Id) {
     $a = Get-Agent $Id
     Test-Path (ConvertTo-LocalPath $UserHome $a.Detect)
 }
-function Get-DetectedIds { Get-Agents | Where-Object { Test-Detected $_.Id } | ForEach-Object { $_.Id } }
+function Get-DetectedId { Get-AgentRow | Where-Object { Test-Detected $_.Id } | ForEach-Object { $_.Id } }
 
 function Find-SimilarAgent([string]$Term) {
-    foreach ($a in Get-Agents) { if ($a.Id -like "*$Term*") { return $a.Id } }
+    foreach ($a in Get-AgentRow) { if ($a.Id -like "*$Term*") { return $a.Id } }
     return ''
 }
 
@@ -73,39 +73,39 @@ function Get-TargetFor([string]$Id) {
 
 # --- estado (linhas: chave<TAB>valor) ------------------------------------------
 
-function Get-StateLines { if (Test-Path $StateFile) { @(Get-Content $StateFile -Encoding UTF8) } else { @() } }
+function Get-StateLine { if (Test-Path $StateFile) { @(Get-Content $StateFile -Encoding UTF8) } else { @() } }
 
-function Save-StateLines([string[]]$Lines) {
+function Save-StateLine([string[]]$Lines) {
     New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
     [IO.File]::WriteAllLines($StateFile, [string[]]$Lines, (New-Object Text.UTF8Encoding($false)))
 }
 
 function Get-State([string]$Key) {
-    foreach ($l in Get-StateLines) { $c = $l -split "`t"; if ($c[0] -eq $Key) { return $c[1] } }
+    foreach ($l in Get-StateLine) { $c = $l -split "`t"; if ($c[0] -eq $Key) { return $c[1] } }
     return ''
 }
 
 function Set-State([string]$Key, [string]$Value) {
-    $keep = @(Get-StateLines | Where-Object { ($_ -split "`t")[0] -ne $Key })
-    Save-StateLines ($keep + "$Key`t$Value")
+    $keep = @(Get-StateLine | Where-Object { ($_ -split "`t")[0] -ne $Key })
+    Save-StateLine ($keep + "$Key`t$Value")
 }
 
-function Get-StateAgents {
-    foreach ($l in Get-StateLines) {
+function Get-StateAgent {
+    foreach ($l in Get-StateLine) {
         $c = $l -split "`t"
         if ($c[0] -eq 'agent') { [pscustomobject]@{ Id = $c[1]; Dest = $c[2] } }
     }
 }
 
 function Add-StateAgent([string]$Id, [string]$Dest) {
-    $keep = @(Get-StateLines | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'agent' -and $c[1] -eq $Id) })
-    Save-StateLines ($keep + "agent`t$Id`t$Dest")
+    $keep = @(Get-StateLine | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'agent' -and $c[1] -eq $Id) })
+    Save-StateLine ($keep + "agent`t$Id`t$Dest")
 }
 
 function Remove-StateAgent([string]$Id) {
     if (-not (Test-Path $StateFile)) { return }
-    $keep = @(Get-StateLines | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'agent' -and $c[1] -eq $Id) })
-    Save-StateLines $keep
+    $keep = @(Get-StateLine | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'agent' -and $c[1] -eq $Id) })
+    Save-StateLine $keep
 }
 
 # --- argumentos ---------------------------------------------------------------
@@ -116,7 +116,7 @@ $script:Link = $false
 $script:Dry = $false
 $script:ReqVersion = ''
 
-function Read-Options([string[]]$Tokens) {
+function Read-Option([string[]]$Tokens) {
     $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Dry = $false; $script:ReqVersion = ''
     $i = 0
     while ($i -lt $Tokens.Count) {
@@ -146,8 +146,8 @@ function Read-Options([string[]]$Tokens) {
 
 # --- instalação ---------------------------------------------------------------
 
-function Test-OwnedByUs([string]$Dest) {
-    $registered = @(Get-StateAgents | ForEach-Object { $_.Dest })
+function Test-OwnedBySelf([string]$Dest) {
+    $registered = @(Get-StateAgent | ForEach-Object { $_.Dest })
     if ($registered -notcontains $Dest) { return $false }
     $item = Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue
     if ($null -eq $item) { return $false }
@@ -166,7 +166,7 @@ function Remove-Target([string]$Dest) {
 
 function Install-To([string]$Dest) {
     if ((Test-Path -LiteralPath $Dest) -or (Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue)) {
-        if (Test-OwnedByUs $Dest) { Remove-Target $Dest }
+        if (Test-OwnedBySelf $Dest) { Remove-Target $Dest }
         else {
             Write-Err "$Dest já existe e não foi instalada pelo adr-std; nada foi alterado. Remova ou renomeie a pasta e tente de novo."
             exit 4
@@ -186,13 +186,13 @@ function Install-To([string]$Dest) {
 }
 
 function Read-Answer([string]$Prompt) {
-    if ($env:ADR_STD_ANSWER -ne $null) { Write-Host "$Prompt$($env:ADR_STD_ANSWER)"; return $env:ADR_STD_ANSWER }
+    if ($null -ne $env:ADR_STD_ANSWER) { Write-Host "$Prompt$($env:ADR_STD_ANSWER)"; return $env:ADR_STD_ANSWER }
     if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) { return (Read-Host $Prompt) }
     return $null
 }
 
-function Select-Agents {
-    $found = @(Get-DetectedIds)
+function Select-Agent {
+    $found = @(Get-DetectedId)
     if ($found.Count -eq 0) { Stop-AdrStd 3 'nenhum agente encontrado neste computador. Indique com --agent (veja: adr-std agents)' }
     Write-Host 'Agentes encontrados neste computador:'
     for ($n = 0; $n -lt $found.Count; $n++) {
@@ -211,14 +211,14 @@ function Select-Agents {
 }
 
 function Invoke-Install([string[]]$Tokens) {
-    Read-Options $Tokens
+    Read-Option $Tokens
     if (-not (Test-Path (Join-Path $Src 'skill/SKILL.md'))) { Stop-AdrStd 1 "skill não encontrada em $(Join-Path $Src 'skill')" }
     $ids = @($script:Agents)
     if ($script:All) {
-        $ids = @(Get-DetectedIds)
+        $ids = @(Get-DetectedId)
         if ($ids.Count -eq 0) { Stop-AdrStd 3 'nenhum agente encontrado neste computador. Veja: adr-std agents' }
     }
-    if ($ids.Count -eq 0) { $ids = @(Select-Agents) }
+    if ($ids.Count -eq 0) { $ids = @(Select-Agent) }
     $done = @{}
     foreach ($id in $ids) {
         $dest = Get-TargetFor $id
@@ -238,18 +238,18 @@ function Invoke-Install([string[]]$Tokens) {
 }
 
 function Invoke-Uninstall([string[]]$Tokens) {
-    Read-Options $Tokens
+    Read-Option $Tokens
     $ids = @($script:Agents)
-    if ($ids.Count -eq 0) { $ids = @(Get-StateAgents | ForEach-Object { $_.Id }) }
+    if ($ids.Count -eq 0) { $ids = @(Get-StateAgent | ForEach-Object { $_.Id }) }
     if ($ids.Count -eq 0) { Write-Host 'Nada a remover: nenhum agente registrado.'; return }
     foreach ($id in $ids) {
-        $entry = Get-StateAgents | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+        $entry = Get-StateAgent | Where-Object { $_.Id -eq $id } | Select-Object -First 1
         if ($null -eq $entry) { Write-Host "  • $id não está registrado; nada a remover"; continue }
         $dest = $entry.Dest
-        $others = @(Get-StateAgents | Where-Object { $_.Dest -eq $dest -and $_.Id -ne $id })
+        $others = @(Get-StateAgent | Where-Object { $_.Dest -eq $dest -and $_.Id -ne $id })
         if ($others.Count -gt 0) { Write-Host "  • $dest continua em uso por outro agente; mantida" }
         elseif (-not (Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue)) { Write-Host "  • $dest já não existe" }
-        elseif (Test-OwnedByUs $dest) {
+        elseif (Test-OwnedBySelf $dest) {
             if ($script:Dry) { Write-Host "  (simulação) removeria $dest" }
             else { Remove-Target $dest; Write-Host "  ✔ removida $dest" }
         }
@@ -260,20 +260,20 @@ function Invoke-Uninstall([string[]]$Tokens) {
 
 function Invoke-Status {
     $ver = Get-State 'version'
-    if (-not $ver -or @(Get-StateAgents).Count -eq 0) {
+    if (-not $ver -or @(Get-StateAgent).Count -eq 0) {
         Write-Host ("adr-std: skill não instalada (comando {0}). Instale com: adr-std install" -f (Get-AdrStdVersion)); return
     }
     Write-Host ("adr-std: skill instalada na versão {0} (comando {1}); modo {2}" -f $ver, (Get-AdrStdVersion), (Get-State 'mode'))
-    foreach ($e in Get-StateAgents) {
+    foreach ($e in Get-StateAgent) {
         $ok = (Test-Path (Join-Path $e.Dest 'SKILL.md'))
         $note = if ($ok) { 'íntegra' } else { 'danificada (pasta ausente ou incompleta)' }
         Write-Host ("  {0,-15} {1}  [{2}]" -f $e.Id, $e.Dest, $note)
     }
 }
 
-function Invoke-Agents {
+function Invoke-Agent {
     Write-Host ("  {0,-15} {1,-27} {2,-30} {3}" -f 'AGENTE', 'NOME', 'PASTA DE SKILLS', 'NESTE COMPUTADOR')
-    foreach ($a in Get-Agents) {
+    foreach ($a in Get-AgentRow) {
         $mark = if (Test-Detected $a.Id) { '✔ encontrado' } else { '-' }
         Write-Host ("  {0,-15} {1,-27} {2,-30} {3}" -f $a.Id, $a.Name, "~/$($a.Dir)", $mark)
     }
@@ -299,8 +299,8 @@ function Invoke-Check([string[]]$Tokens) {
 }
 
 function Invoke-Update([string[]]$Tokens) {
-    Read-Options $Tokens
-    $ids = @(Get-StateAgents | ForEach-Object { $_.Id })
+    Read-Option $Tokens
+    $ids = @(Get-StateAgent | ForEach-Object { $_.Id })
     foreach ($id in $script:Agents) { if ($ids -notcontains $id) { $ids += $id } }
     if ($ids.Count -eq 0) { Stop-AdrStd 3 'nenhum agente registrado. Instale primeiro com: adr-std install' }
     $installer = Join-Path $DataDir 'install.ps1'
@@ -320,7 +320,7 @@ function Invoke-Update([string[]]$Tokens) {
 }
 
 function Invoke-SelfUninstall([string[]]$Tokens) {
-    Read-Options $Tokens
+    Read-Option $Tokens
     $pathEntry = Get-State 'path_entry'
     if ($script:Dry) {
         Write-Host "  (simulação) removeria a skill dos agentes registrados, $BinDir, $DataDir e $ConfigDir"
@@ -345,7 +345,7 @@ function Invoke-SelfUninstall([string[]]$Tokens) {
 }
 
 function Show-Help {
-    $ids = (Get-Agents | ForEach-Object { $_.Id }) -join ' '
+    $ids = (Get-AgentRow | ForEach-Object { $_.Id }) -join ' '
     @"
 adr-std $(Get-AdrStdVersion) — gerencia a skill adr-std (ADRs segundo a ISO/IEC/IEEE 42010:2022)
 
@@ -379,7 +379,7 @@ $rest = if ($args.Count -gt 1) { [string[]]$args[1..($args.Count - 1)] } else { 
 switch ($cmd) {
     { $_ -in 'version', '--version', '-v' } { Write-Host "adr-std $(Get-AdrStdVersion)" }
     { $_ -in 'help', '--help', '-h' }       { Show-Help }
-    'agents'         { Invoke-Agents }
+    'agents'         { Invoke-Agent }
     'install'        { Invoke-Install $rest }
     'uninstall'      { Invoke-Uninstall $rest }
     'status'         { Invoke-Status }
