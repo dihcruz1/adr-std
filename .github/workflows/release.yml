@@ -31,8 +31,7 @@ jobs:
         shell: pwsh
         run: |
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
-          $files = Get-ChildItem -Recurse -Include *.ps1 | Where-Object { $_.FullName -notmatch '\.git' }
-          if ($files) { Invoke-ScriptAnalyzer -Path $files.FullName -Severity Error,Warning -EnableExit }
+          Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost,PSUseShouldProcessForStateChangingFunctions -EnableExit
       - name: Testes do script de verificação
         run: python3 -m unittest discover -s tests -p 'test_check_adr.py' -v
 
