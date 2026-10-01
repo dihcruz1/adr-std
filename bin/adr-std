@@ -412,16 +412,28 @@ cmd_status() {
   done < <(state_agents)
 }
 
-cmd_check() {
-  [ $# -gt 0 ] || die 2 "uso: adr-std check <arquivo-ou-pasta> [--name-pattern REGEX]"
+# Roda um script Python da skill; sem Python 3, avisa e indica o checklist manual (código 6).
+run_python_script() { # script comando args...
+  local script_name="$1" cmd="$2"; shift 2
   local py=""
   if command -v python3 >/dev/null 2>&1; then py=python3
   elif command -v python >/dev/null 2>&1 && python -c 'import sys; sys.exit(sys.version_info[0] < 3)' 2>/dev/null; then py=python
   fi
-  [ -n "$py" ] || die 6 "o comando check precisa de Python 3, que não foi encontrado. Instale o Python 3 ou aplique o checklist manualmente: $SRC/skill/references/checklist.md"
-  local script="$SRC/skill/scripts/check_adr.py"
-  [ -f "$script" ] || die 1 "check_adr.py não encontrado em $SRC/skill/scripts"
+  [ -n "$py" ] || die 6 "o comando $cmd precisa de Python 3, que não foi encontrado. Instale o Python 3 ou aplique o checklist manualmente: $SRC/skill/references/checklist.md"
+  local script="$SRC/skill/scripts/$script_name"
+  [ -f "$script" ] || die 1 "$script_name não encontrado em $SRC/skill/scripts"
   "$py" "$script" "$@"
+}
+
+cmd_check() {
+  [ $# -gt 0 ] || die 2 "uso: adr-std check <arquivo-ou-pasta> [--name-pattern REGEX]"
+  run_python_script check_adr.py check "$@"
+}
+
+# new, list, link e organize: lógica em skill/scripts/adr_cli.py
+cmd_mechanical() { # comando args...
+  local cmd="$1"; shift
+  run_python_script adr_cli.py "$cmd" "$cmd" "$@"
 }
 
 # --- comandos ---------------------------------------------------------------
@@ -447,6 +459,11 @@ Comandos:
   status                 Versão, agentes, integridade e se há versão nova
   agents                 Agentes suportados e os encontrados neste computador
   check <arquivo|pasta>  Verifica ADRs (precisa de Python 3)
+  new <título>           Cria o esqueleto de um ADR, sem perguntas (Python 3)
+  list                   Lista os ADRs da pasta (Python 3)
+  link <A> <tipo> <B>    Registra uma relação entre dois ADRs, nos dois lados (Python 3)
+  organize --dry-run     Mostra o plano de renumeração, sem alterar nada (Python 3)
+                         (new, list, link e organize aceitam --path PASTA e --name-pattern REGEX)
   version                Mostra a versão
   help                   Mostra esta ajuda
 
@@ -478,6 +495,7 @@ main() {
     uninstall)            cmd_uninstall "$@" ;;
     status)               cmd_status ;;
     check)                cmd_check "$@" ;;
+    new|list|link|organize) cmd_mechanical "$cmd" "$@" ;;
     self-uninstall)       cmd_self_uninstall "$@" ;;
     update)               cmd_update "$@" ;;
     *) err "comando desconhecido: $cmd"; echo; cmd_help; exit 2 ;;

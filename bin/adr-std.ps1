@@ -360,23 +360,33 @@ function Invoke-Agent {
     }
 }
 
-function Invoke-Check([string[]]$Tokens) {
-    if ($Tokens.Count -eq 0) { Stop-AdrStd 2 'uso: adr-std check <arquivo-ou-pasta> [--name-pattern REGEX]' }
+# Roda um script Python da skill; sem Python 3, avisa e indica o checklist manual (código 6).
+function Invoke-PythonScript([string]$ScriptName, [string]$Command, [string[]]$Tokens) {
     $py = $null
     foreach ($cand in 'python3', 'python', 'py') {
-        $cmd = Get-Command $cand -ErrorAction SilentlyContinue
-        if ($cmd) {
-            & $cmd.Source -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' 2>$null
-            if ($LASTEXITCODE -eq 0) { $py = $cmd.Source; break }
+        $found = Get-Command $cand -ErrorAction SilentlyContinue
+        if ($found) {
+            & $found.Source -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' 2>$null
+            if ($LASTEXITCODE -eq 0) { $py = $found.Source; break }
         }
     }
     if (-not $py) {
-        Stop-AdrStd 6 ("o comando check precisa de Python 3, que não foi encontrado. Instale o Python 3 ou aplique o checklist manualmente: {0}" -f (Join-Path $Src 'skill/references/checklist.md'))
+        Stop-AdrStd 6 ("o comando {0} precisa de Python 3, que não foi encontrado. Instale o Python 3 ou aplique o checklist manualmente: {1}" -f $Command, (Join-Path $Src 'skill/references/checklist.md'))
     }
-    $script = Join-Path $Src 'skill/scripts/check_adr.py'
-    if (-not (Test-Path $script)) { Stop-AdrStd 1 "check_adr.py não encontrado em $(Join-Path $Src 'skill/scripts')" }
+    $script = Join-Path $Src "skill/scripts/$ScriptName"
+    if (-not (Test-Path $script)) { Stop-AdrStd 1 "$ScriptName não encontrado em $(Join-Path $Src 'skill/scripts')" }
     & $py $script @Tokens
     exit $LASTEXITCODE
+}
+
+function Invoke-Check([string[]]$Tokens) {
+    if ($Tokens.Count -eq 0) { Stop-AdrStd 2 'uso: adr-std check <arquivo-ou-pasta> [--name-pattern REGEX]' }
+    Invoke-PythonScript 'check_adr.py' 'check' $Tokens
+}
+
+# new, list, link e organize: lógica em skill/scripts/adr_cli.py
+function Invoke-Mechanical([string]$Command, [string[]]$Tokens) {
+    Invoke-PythonScript 'adr_cli.py' $Command (@($Command) + $Tokens)
 }
 
 function Invoke-Update([string[]]$Tokens) {
@@ -445,6 +455,11 @@ Comandos:
   status                 Versão, agentes e integridade
   agents                 Agentes suportados e os encontrados neste computador
   check <arquivo|pasta>  Verifica ADRs (precisa de Python 3)
+  new <título>           Cria o esqueleto de um ADR, sem perguntas (Python 3)
+  list                   Lista os ADRs da pasta (Python 3)
+  link <A> <tipo> <B>    Registra uma relação entre dois ADRs, nos dois lados (Python 3)
+  organize --dry-run     Mostra o plano de renumeração, sem alterar nada (Python 3)
+                         (new, list, link e organize aceitam --path PASTA e --name-pattern REGEX)
   version                Mostra a versão
   help                   Mostra esta ajuda
 
@@ -465,6 +480,7 @@ switch ($cmd) {
     'uninstall'      { Invoke-Uninstall $rest }
     'status'         { Invoke-Status }
     'check'          { Invoke-Check $rest }
+    { $_ -in 'new', 'list', 'link', 'organize' } { Invoke-Mechanical $cmd $rest }
     'update'         { Invoke-Update $rest }
     'self-uninstall' { Invoke-SelfUninstall $rest }
     default {

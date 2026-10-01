@@ -72,7 +72,7 @@ foreach ($d in 'skill') {
     if (Test-Path $target) { Remove-Item -Recurse -Force $target }
     Copy-Item -Recurse -Path (Join-Path $Src $d) -Destination $target
 }
-foreach ($f in 'agents.tsv', 'VERSION', 'install.ps1', 'README.md') {
+foreach ($f in 'agents.tsv', 'commands.tsv', 'command_targets.tsv', 'VERSION', 'install.ps1', 'README.md') {
     $p = Join-Path $Src $f
     if (Test-Path $p) { Copy-Item -Force -Path $p -Destination $DataDir }
 }

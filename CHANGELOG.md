@@ -5,6 +5,21 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [1.2.0] - 2026-10-01
+
+### Adicionado
+- Comandos mecânicos no terminal, em Python (`skill/scripts/adr_cli.py`): `adr-std new <título>`,
+  `list`, `link <ADR-A> <tipo> <ADR-B>` e `organize --dry-run`, com `--path PASTA` e `--name-pattern`.
+  A pasta dos ADRs segue o ADR-0001: `--path` > `.adr-std` > config global > `docs/architecture/ADR`.
+  Sem Python 3, os comandos avisam (código 6) e indicam o checklist manual.
+- `link` grava a relação nos dois ADRs (com o tipo inverso) e não deixa estado parcial; `new` nunca
+  sobrescreve arquivo e não grava fora da pasta de ADRs.
+- Paridade no PowerShell (`bin/adr-std.ps1`).
+
+### Corrigido
+- `install.sh`, `install.ps1` e `package.sh` não incluíam `commands.tsv` e `command_targets.tsv`
+  (v1.1): instalar pelo zip ou pelo instalador remoto não criava os comandos de ação no agente.
+
 ## [1.1.0] - 2026-10-01
 
 ### Adicionado

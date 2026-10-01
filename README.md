@@ -195,7 +195,7 @@ Zed e Warp → `~/.agents/skills/adr-std/`. No Windows, o mesmo caminho a partir
 | Uma linha | `curl` (ou `wget`), `bash` (Linux e macOS) ou PowerShell (Windows) |
 | Git | `git` |
 | Manual | Nada |
-| `adr-std check` | Python 3 (só para esse comando) |
+| `adr-std check`, `new`, `list`, `link`, `organize` | Python 3 (só para esses comandos) |
 
 Nenhuma forma pede senha de administrador nem `sudo`.
 
@@ -259,6 +259,13 @@ adr-std install --all                    # todos os encontrados
 | `adr-std status` | Versão instalada, agentes, se as pastas estão íntegras |
 | `adr-std agents` | Agentes suportados e os encontrados no computador |
 | `adr-std check <arquivo-ou-pasta>` | Verifica ADRs (precisa de Python 3) |
+| `adr-std new <título>` | Cria o esqueleto de um ADR (próximo número, `Proposto`, campos `pendente`), sem perguntas (Python 3) |
+| `adr-std list` | Lista ID, status, data e título dos ADRs da pasta (Python 3) |
+| `adr-std link <ADR-A> <tipo> <ADR-B>` | Registra a relação nos dois ADRs, com o tipo inverso (Python 3) |
+| `adr-std organize --dry-run` | Mostra o plano de renumeração, sem alterar nada (Python 3) |
+
+`new`, `list`, `link` e `organize` aceitam `--path PASTA` e `--name-pattern REGEX`. Sem `--path`, a pasta vem de
+`.adr-std` (campo `path`), depois de `~/.config/adr-std/config` e, por fim, `docs/architecture/ADR`.
 | `adr-std version` · `adr-std help` | Versão e ajuda |
 
 Regras de segurança do comando:
@@ -317,15 +324,15 @@ apaga a pasta `adr-std` do agente e copia a nova.
 
 ## 13. Limitações e próximas versões
 
-**Versão 1.0 (esta):** skill, instalação em vários agentes e o comando `adr-std` (`install`, `update`, `uninstall`,
-`self-uninstall`, `status`, `agents`, `check`).
+**Versão 1.2 (esta):** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
+`adr-std` (`install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`, `new`, `list`, `link`,
+`organize --dry-run`).
 
 **Planejado** (detalhes e decisões em [`ROADMAP.md`](ROADMAP.md)):
 
 | Versão | Conteúdo |
 |---|---|
 | 1.1 | Comandos por ação dentro do agente: `/adr-std-create` (com `--ask N` e `--quick`), `/adr-std-supersede`, `/adr-std-review`, `/adr-std-organize`, `/adr-std-link`, `/adr-std-audit`, `/adr-std-check`, `/adr-std-ask` |
-| 1.2 | Comandos mecânicos no terminal: `adr-std new`, `list`, `link`, `organize --dry-run` |
 | 1.3 | Comandos de conversa no terminal (`adr-std create ...`) abrindo o agente escolhido, com menu que lembra a última escolha e `adr-std config agent` |
 
 **Limitações conhecidas:**
@@ -345,6 +352,7 @@ apaga a pasta `adr-std` do agente e copia a nova.
 | `skill/references/template-madr.md` | Template do ADR, com os campos da cláusula 6.10 |
 | `skill/references/checklist.md` | Checklist de conformidade, com a origem de cada item |
 | `skill/scripts/check_adr.py` | Verificação automática dos itens mecânicos |
+| `skill/scripts/adr_cli.py` | Comandos `new`, `list`, `link` e `organize --dry-run` do terminal |
 
 ## 15. Licença e contribuição
 

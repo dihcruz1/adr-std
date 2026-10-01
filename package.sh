@@ -12,7 +12,7 @@ out="${1:-dist}"
 mkdir -p "$out"
 out="$(cd "$out" && pwd)"
 
-required=(VERSION agents.tsv install.sh bin/adr-std skill/SKILL.md skill/scripts/check_adr.py
+required=(VERSION agents.tsv commands.tsv command_targets.tsv install.sh bin/adr-std skill/SKILL.md skill/scripts/check_adr.py
           packaging/instalar-windows.bat packaging/instalar-mac.command packaging/instalar-linux.sh
           packaging/desinstalar-windows.bat packaging/desinstalar-mac.command packaging/desinstalar-linux.sh)
 release_only=(README.md LICENSE install.ps1 bin/adr-std.ps1 bin/adr-std.cmd)
@@ -32,7 +32,7 @@ fi
 stage="$(mktemp -d)"
 trap 'rm -rf "$stage"' EXIT
 mkdir -p "$stage/bin"
-for f in VERSION agents.tsv install.sh; do cp "$f" "$stage/"; done
+for f in VERSION agents.tsv install.sh commands.tsv command_targets.tsv; do cp "$f" "$stage/"; done
 for f in README.md LICENSE install.ps1; do [ -e "$f" ] && cp "$f" "$stage/"; done
 cp bin/adr-std "$stage/bin/"
 for f in bin/adr-std.ps1 bin/adr-std.cmd; do [ -e "$f" ] && cp "$f" "$stage/bin/"; done
