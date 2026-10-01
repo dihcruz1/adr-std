@@ -231,6 +231,7 @@ test_install_commands() {
   assert_file "$HOME/.claude/commands/adr-std-list.md" || return 1
   local n; n=$(find "$HOME/.claude/commands" -name 'adr-std-*.md' | wc -l)
   assert_eq "$n" "10" "arquivos de comando criados" || return 1
+  # shellcheck disable=SC2016 # literal $ARGUMENTS esperado no arquivo, não expansão
   assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" '$ARGUMENTS' || return 1
   assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" 'ação "create"' || return 1
   grep -qP '^command\tclaude-code\t' "$(state_file)" || fail "estado sem registro de comando"
