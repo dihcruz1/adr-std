@@ -52,6 +52,54 @@ detected_ids() {
   for id in $(agent_ids); do is_detected "$id" && echo "$id"; done
 }
 
+# Imprime as linhas de commands.tsv: acao<TAB>descricao-curta
+command_rows() {
+  [ -f "$SRC/commands.tsv" ] || return 1
+  grep -v '^#' "$SRC/commands.tsv" | grep .
+}
+
+# Imprime as linhas de command_targets.tsv: id<TAB>pasta<TAB>extensao<TAB>variavel-argumento
+cmd_target_rows() {
+  [ -f "$SRC/command_targets.tsv" ] || return 1
+  grep -v '^#' "$SRC/command_targets.tsv" | grep .
+}
+
+has_command_target() { cmd_target_rows | cut -f1 | grep -qxF -- "$1"; }
+
+cmd_target_field() { # id campo(2..4)
+  cmd_target_rows | awk -F'\t' -v id="$1" -v f="$2" '$1 == id { print $f }'
+}
+
+command_marker_line() { # extensao
+  case "$1" in
+    toml) echo '# adr-std: gerado automaticamente; não editar à mão' ;;
+    *)    echo '<!-- adr-std: gerado automaticamente; não editar à mão -->' ;;
+  esac
+}
+
+command_owned_by_us() { # arquivo
+  [ -f "$1" ] && grep -qF 'adr-std: gerado automaticamente' "$1"
+}
+
+command_file_content() { # acao descricao extensao variavel-argumento
+  local action="$1" desc="$2" ext="$3" argvar="$4" marker
+  marker="$(command_marker_line "$ext")"
+  case "$ext" in
+    toml)
+      printf '%s\ndescription = "%s"\nprompt = """\nUse a skill adr-std, ação "%s", com estes argumentos: %s\n"""\n' \
+        "$marker" "$desc" "$action" "$argvar"
+      ;;
+    prompt)
+      printf -- '---\nname: adr-std-%s\ndescription: %s\n---\n%s\nUse a skill adr-std, ação "%s", com estes argumentos: %s\n' \
+        "$action" "$desc" "$marker" "$action" "$argvar"
+      ;;
+    *)
+      printf -- '---\ndescription: %s\n---\n%s\nUse a skill adr-std, ação "%s", com estes argumentos: %s\n' \
+        "$desc" "$marker" "$action" "$argvar"
+      ;;
+  esac
+}
+
 suggest_agent() { # termo → id parecido (ou vazio)
   local term="$1" id
   for id in $(agent_ids); do
@@ -90,12 +138,31 @@ state_add_agent() { # id pasta
   mv "$STATE_FILE.tmp" "$STATE_FILE"
 }
 
+state_add_command() { # id arquivo
+  mkdir -p "$CONFIG_DIR"
+  { state_lines | awk -F'\t' -v id="$1" -v p="$2" '!($1 == "command" && $2 == id && $3 == p)'; printf 'command\t%s\t%s\n' "$1" "$2"; } > "$STATE_FILE.tmp"
+  mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
+
+# Remove do disco (se ainda marcados) e do estado todos os arquivos de comando registrados para o agente.
+state_del_commands_for() { # id
+  local id="$1" path
+  while IFS= read -r path; do
+    [ -n "$path" ] || continue
+    command_owned_by_us "$path" && rm -f "$path"
+  done < <(state_lines | awk -F'\t' -v id="$id" '$1 == "command" && $2 == id { print $3 }')
+  [ -f "$STATE_FILE" ] || return 0
+  awk -F'\t' -v id="$id" '!($1 == "command" && $2 == id)' "$STATE_FILE" > "$STATE_FILE.tmp"
+  mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
+
 # --- argumentos -------------------------------------------------------------
 
 AGENTS=()
 ALL=0
 LINK=0
 DRY=0
+NO_COMMANDS=0
 REQ_VERSION=""
 
 parse_args() {
@@ -108,6 +175,7 @@ parse_args() {
       --all)     ALL=1 ;;
       --link)    LINK=1 ;;
       --dry-run) DRY=1 ;;
+      --no-commands) NO_COMMANDS=1 ;;
       --version) REQ_VERSION="${1:-}"; [ $# -gt 0 ] && shift ;;
       --*)       die 2 "opção desconhecida: $tok" ;;
       *)
@@ -191,6 +259,32 @@ choose_agents() {
   [ ${#AGENTS[@]} -gt 0 ] || die 3 "nenhum agente escolhido"
 }
 
+install_commands() { # instala os arquivos de comando de ação para os AGENTS selecionados
+  [ "$NO_COMMANDS" -eq 1 ] && return 0
+  command_rows >/dev/null 2>&1 || return 0
+  local id dest_dir ext argvar action desc file
+  for id in "${AGENTS[@]}"; do
+    has_command_target "$id" || continue
+    dest_dir="$HOME/$(cmd_target_field "$id" 2)"
+    ext="$(cmd_target_field "$id" 3)"
+    argvar="$(cmd_target_field "$id" 4)"
+    [ "$DRY" -eq 1 ] || mkdir -p "$dest_dir"
+    while IFS=$'\t' read -r action desc; do
+      file="$dest_dir/adr-std-$action.$ext"
+      if [ -e "$file" ] && ! command_owned_by_us "$file"; then
+        echo "  ! $file já existe e não foi gerado pelo adr-std; mantido"
+        continue
+      fi
+      if [ "$DRY" -eq 1 ]; then
+        echo "  (simulação) criaria $file"
+        continue
+      fi
+      command_file_content "$action" "$desc" "$ext" "$argvar" > "$file"
+      state_add_command "$id" "$file"
+    done < <(command_rows)
+  done
+}
+
 cmd_install() {
   parse_args "$@"
   [ -f "$SRC/skill/SKILL.md" ] || die 1 "skill não encontrada em $SRC/skill"
@@ -215,6 +309,7 @@ cmd_install() {
     fi
     [ "$DRY" -eq 1 ] || state_add_agent "$id" "$dest"
   done
+  install_commands
   if [ "$DRY" -eq 0 ]; then
     state_put version "$(version)"
     state_put mode "$([ "$LINK" -eq 1 ] && echo link || echo copy)"
@@ -255,7 +350,7 @@ cmd_uninstall() {
     else
       echo "  ! $dest não foi instalada pelo adr-std; mantida"
     fi
-    [ "$DRY" -eq 1 ] || state_del_agent "$id"
+    [ "$DRY" -eq 1 ] || { state_del_agent "$id"; state_del_commands_for "$id"; }
   done
 }
 

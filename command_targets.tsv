@@ -1,0 +1,6 @@
+# Agentes com comando de ação dedicado (v1.1). Colunas separadas por TAB; caminhos relativos a ~.
+# id	pasta	extensao	variavel-argumento
+claude-code	.claude/commands	md	$ARGUMENTS
+gemini-cli	.gemini/commands	toml	{{args}}
+opencode	.config/opencode/commands	md	$ARGUMENTS
+continue	.continue/prompts	prompt	{{{ input }}}
