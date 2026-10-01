@@ -138,6 +138,19 @@ class CheckAdrTest(unittest.TestCase):
             positions.append(cursor)
         self.assertEqual(positions, sorted(positions))
 
+    def test_skill_md_documents_roadmap_automation(self):
+        text = SKILL_MD.read_text(encoding="utf-8")
+        section = text.split("### ROADMAP.md")[1].split("## Tarefas")[0]
+        for marker in [
+            "apenas",
+            "Não iniciada",
+            "Só requisitos",
+            "Em andamento",
+            "Concluída",
+            "ROADMAP atualizado",
+        ]:
+            self.assertIn(marker, section)
+
     def test_check_accepts_custom_folder(self):
         custom = self.tmp / "outra-pasta" / "custom"
         custom.mkdir(parents=True)
