@@ -16,7 +16,9 @@
     o caso novo).
   - **GREEN:** teste escrito; passa sem alterar `SKILL.md`.
   - **Validação:** `python3 -m unittest discover -s tests -p 'test_check_adr.py' -v`
-  - **Evidência:** registrada após a execução real abaixo.
+  - **Evidência:** confirmado por leitura (`grep`-equivalente em Python) que os marcadores já
+    estavam presentes em `SKILL.md` antes de escrever o teste; teste escrito e verde de imediato
+    (14 de 14 testes do arquivo, 13 anteriores + este), sem alterar `SKILL.md`.
 
 ## 2. Heurística de Status no script
 
@@ -29,7 +31,13 @@
     heurística existir no script: os 3 primeiros falham (script não compara Status).
   - **GREEN:** heurística implementada conforme o design.
   - **Validação:** `python3 -m unittest discover -s tests -p 'test_check_roadmap.py' -v`
-  - **Evidência:** registrada após a execução real abaixo.
+  - **Evidência:** RED real: os 3 primeiros casos falharam porque o script ainda não comparava
+    Status (`AssertionError: 2 != 1`, nenhuma verificação de heurística implementada). Ajuste de
+    rota durante o GREEN: os links de Spec nas fixtures usavam `../specs/...` (estrutura real do
+    repositório), mas a fixture de teste colocava `specs/` dentro da própria pasta temporária —
+    corrigido o link da fixture para `specs/minha-spec/...` (sem `../`), consistente com a posição
+    real do `ROADMAP.md` de teste. GREEN: heurística implementada em `check_roadmap.py`; 9 de 9
+    testes de `test_check_roadmap.py`.
 
 ## Auditoria cruzada
 
