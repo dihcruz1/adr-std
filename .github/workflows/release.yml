@@ -33,7 +33,7 @@ jobs:
           Install-Module PSScriptAnalyzer -Force -Scope CurrentUser
           Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning -ExcludeRule PSAvoidUsingWriteHost,PSUseShouldProcessForStateChangingFunctions -EnableExit
       - name: Testes do script de verificação
-        run: python3 -m unittest discover -s tests -p 'test_check_adr.py' -v
+        run: python3 -m unittest discover -s tests -p 'test_*.py' -v
 
   test:
     name: Testes do comando (${{ matrix.os }})
