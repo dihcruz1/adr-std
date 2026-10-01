@@ -5,14 +5,30 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [1.1.0] - 2026-10-01
+
+### Adicionado
+- Comandos por ação dentro do agente (`/adr-std-create`, `-supersede`, `-review`, `-organize`,
+  `-link`, `-audit`, `-check`, `-ask`, `-new`, `-list`) para Claude Code, Gemini CLI, OpenCode e
+  Continue; `$adr-std <ação>` no Codex.
+  Conversa guiada em `create`/`supersede` com `--ask N` (`-a N`) e `--quick` (`-k`).
+- `adr-std install`/`update` criam e removem os arquivos de comando nos agentes que aceitam;
+  `--no-commands` instala só a skill; arquivos de terceiros nunca são sobrescritos.
+- `skill/scripts/check_roadmap.py`: verifica a consistência do `ROADMAP.md` de arquitetura
+  (estrutura, rastreabilidade bidirecional com os ADRs, heurística de Status das Specs).
+- ADR-0001 (caminho dos ADRs e personalização), ADR-0002 (ROADMAP como documento central de
+  rastreabilidade) e ADR-0003 (atualização automática do ROADMAP) implementados no `SKILL.md`.
+
+## [1.0.0] - 2026-10-01
+
 ### Adicionado
 - Skill `adr-std`: guia da ISO/IEC/IEEE 42010:2022, template MADR estendido, checklist e `check_adr.py`.
-- Comando `adr-std` (bash): `install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`,
-  `version` e `help`.
-- Instalador `install.sh` (modo local e remoto, com conferência de checksum) e pacote zip com atalhos de duplo clique.
+- Comando `adr-std` (bash e PowerShell): `install`, `update`, `uninstall`, `self-uninstall`, `status`,
+  `agents`, `check`, `version` e `help`.
+- Instaladores `install.sh`/`install.ps1` (modo local e remoto, com conferência de checksum) e pacote
+  zip com atalhos de duplo clique para Windows, macOS e Linux.
 - Lista de 15 agentes em `agents.tsv`.
-- Testes automáticos do script (`tests/test_check_adr.py`) e do comando (`tests/test_cli.sh`).
-
-### Pendente para a 1.0.0
-- Instalador e comando para Windows (PowerShell) e sua validação em Windows.
-- Workflow de publicação com gate de segurança.
+- Workflow `release.yml` com gate de segurança (bloqueia arquivo da norma, arquivo grande, `name`
+  divergente e tag fora de `VERSION`) e testes em Ubuntu, macOS e Windows.
+- Testes automáticos do script (`tests/test_check_adr.py`), do comando (`tests/test_cli.sh`, `tests/test_cli.ps1`)
+  e do gate (`tests/gate.sh`).
