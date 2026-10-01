@@ -27,7 +27,7 @@ As etapas abaixo rastreiam a relação entre as versões e as decisões arquitet
 | Versão | Assunto | ADR(s) Relacionado(s) | Spec | Status |
 |:---:|---|:---:|---|:---:|
 | **v1.0** | Skill, instalação, CLI (`install`, `update`, `uninstall`, `status`, `agents`, `check`) | — | [2026-09-30-adr-std-v1-0](../../specs/2026-09-30-adr-std-v1-0/) | Em execução |
-| **v1.1** | Comandos por ação dentro do agente (`/adr-std-create`, `-new`, `-list` etc.) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-09-30-adr-std-v1-1-comandos-no-agente](../../specs/2026-09-30-adr-std-v1-1-comandos-no-agente/) | Só requisitos (Gate 1 pendente) |
+| **v1.1** | Comandos por ação dentro do agente (`/adr-std-create`, `-new`, `-list` etc.) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-09-30-adr-std-v1-1-comandos-no-agente](../../specs/2026-09-30-adr-std-v1-1-comandos-no-agente/) | Concluída |
 | **v1.2** | Comandos mecânicos no terminal em Python (`new`, `list`, `link`, `organize`, `config`) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | *Pendente* | Não iniciada |
 | **v1.3** | Comandos de conversa no terminal; agente padrão e menu com memória | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | *Pendente* | Não iniciada |
 
