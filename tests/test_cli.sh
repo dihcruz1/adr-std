@@ -311,7 +311,7 @@ start_server() {
   ( cd site && python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 ) &
   SERVER_PID=$!
   BASE="http://127.0.0.1:$port"
-  local i; for i in 1 2 3 4 5 6 7 8 9 10; do curl -fs "$BASE/" >/dev/null 2>&1 && return 0; sleep 0.3; done
+  local _i; for _i in 1 2 3 4 5 6 7 8 9 10; do curl -fs "$BASE/" >/dev/null 2>&1 && return 0; sleep 0.3; done
   return 1
 }
 
@@ -322,7 +322,6 @@ test_installer_remote() {
   start_server 9.9.9 || { fail "servidor de teste não subiu"; return 1; }
   printf 'n\n' > answer
   local out
-  out="$(cd "$PWD" && ADR_STD_BASE_URL="$BASE" ADR_STD_TTY="$PWD/answer" bash "$ROOT/install.sh" --agent claude-code 2>&1 < "$ROOT/install.sh")" || true
   # simula "curl | bash": o script chega pela entrada padrão, sem arquivos ao lado
   mkdir -p alone && cp "$ROOT/install.sh" alone/install.sh
   out="$(cd alone && ADR_STD_BASE_URL="$BASE" ADR_STD_TTY="$PWD/../answer" bash ./install.sh --agent claude-code 2>&1)" || { stop_server; echo "$out"; fail "instalação remota falhou"; return 1; }
