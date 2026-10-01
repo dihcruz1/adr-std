@@ -3,7 +3,7 @@
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-09-30 |
-| **Status** | Gate 1 aprovado (2026-10-01, por delegação expressa desta sessão); ver [design.md](design.md) e [tasks.md](tasks.md) |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-01 (bash e PowerShell); ver [design.md](design.md) e [tasks.md](tasks.md) |
 | **Depende de** | v1.0 publicada e validada em ao menos dois agentes ([spec da v1.0](../2026-09-30-adr-std-v1-0/)) |
 | **Contexto** | [ROADMAP.md](../../../ROADMAP.md) |
 
