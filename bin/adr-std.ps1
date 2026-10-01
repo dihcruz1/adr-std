@@ -135,7 +135,7 @@ function Read-Options([string[]]$Tokens) {
                     if (Test-Agent $part) { $script:Agents += $part }
                     else {
                         $s = Find-SimilarAgent $part
-                        if ($s) { Stop-AdrStd 2 "agente desconhecido: $part (quis dizer $s?)" }
+                        if ($s) { Stop-AdrStd 2 "agente desconhecido: $part (quis dizer ${s}?)" }
                         Stop-AdrStd 2 "agente desconhecido: $part. Veja: adr-std agents"
                     }
                 }
@@ -314,7 +314,8 @@ function Invoke-Update([string[]]$Tokens) {
     $opts = @()
     if ($script:ReqVersion) { $opts += @('--version', $script:ReqVersion) }
     if ($script:Link) { $opts += '--link' }
-    & powershell -NoProfile -ExecutionPolicy Bypass -File $installer @opts --agent @ids
+    $ps = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+    & $ps -NoProfile -ExecutionPolicy Bypass -File $installer @opts --agent @ids
     exit $LASTEXITCODE
 }
 
