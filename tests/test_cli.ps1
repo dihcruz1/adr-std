@@ -3,6 +3,8 @@
 # Cada teste roda num perfil temporário (ADR_STD_HOME, ADR_STD_LOCALAPPDATA, ADR_STD_APPDATA); o perfil real nunca é usado.
 # Espelha tests/test_cli.sh. Escrito sem poder executar no ambiente de desenvolvimento: validar no CI do Windows.
 
+Describe 'adr-std' {
+
 BeforeAll {
     $script:Root = Split-Path -Parent $PSScriptRoot
     $script:Cli = Join-Path $Root 'bin/adr-std.ps1'
@@ -26,9 +28,9 @@ BeforeAll {
 
 BeforeEach {
     $script:Tmp = Join-Path ([IO.Path]::GetTempPath()) ("adrstd-test-" + [Guid]::NewGuid().ToString('N'))
-    $script:Home = Join-Path $Tmp 'home'
-    New-Item -ItemType Directory -Force -Path $Home, (Join-Path $Tmp 'local'), (Join-Path $Tmp 'roam') | Out-Null
-    $env:ADR_STD_HOME = $Home
+    $script:HomeDir = Join-Path $Tmp 'home'
+    New-Item -ItemType Directory -Force -Path $HomeDir, (Join-Path $Tmp 'local'), (Join-Path $Tmp 'roam') | Out-Null
+    $env:ADR_STD_HOME = $HomeDir
     $env:ADR_STD_LOCALAPPDATA = Join-Path $Tmp 'local'
     $env:ADR_STD_APPDATA = Join-Path $Tmp 'roam'
     $env:ADR_STD_NO_PATH = '1'
@@ -61,7 +63,7 @@ Describe 'version, help e agents' {
         (Invoke-Cli @('comando-inexistente')).Code | Should -Be 2
     }
     It 'agents marca os agentes encontrados' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.codex') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
         $r = Invoke-Cli @('agents')
         ($r.Output -split "`n" | Where-Object { $_ -match '^\s*claude-code' }) | Should -Match 'encontrado'
         ($r.Output -split "`n" | Where-Object { $_ -match '^\s*cursor' }) | Should -Not -Match 'encontrado'
@@ -70,28 +72,28 @@ Describe 'version, help e agents' {
 
 Describe 'install' {
     It 'instala só nos agentes indicados, com marcador e estado' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.codex') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
         (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/.installed-by-adr-std') | Should -BeTrue
-        Test-Path (Join-Path $Home '.codex/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/.installed-by-adr-std') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.codex/skills/adr-std') | Should -BeFalse
         (Get-Content $State) -match "^agent`tclaude-code`t" | Should -Not -BeNullOrEmpty
     }
     It 'aceita --agent com vírgula e com espaço' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.codex') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
         (Invoke-Cli @('install', '--agent', 'claude-code,codex')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.codex/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.codex/skills/adr-std/SKILL.md') | Should -BeTrue
     }
     It 'não duplica na pasta compartilhada' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.gemini'), (Join-Path $Home '.config/opencode') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.gemini'), (Join-Path $HomeDir '.config/opencode') | Out-Null
         (Invoke-Cli @('install', 'gemini-cli', 'opencode')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.agents/skills/adr-std/SKILL.md') | Should -BeTrue
-        Test-Path (Join-Path $Home '.gemini/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.agents/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.gemini/skills/adr-std') | Should -BeFalse
     }
     It 'dry-run não altera nada' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
         (Invoke-Cli @('install', '--dry-run', 'claude-code')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.claude/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std') | Should -BeFalse
         Test-Path $State | Should -BeFalse
     }
     It 'nome de agente errado sugere o mais próximo' {
@@ -100,27 +102,27 @@ Describe 'install' {
         $r.Output | Should -Match 'quis dizer claude-code'
     }
     It 'menu instala os agentes escolhidos' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.codex') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
         (Invoke-Cli @('install') -Answer '1 2').Code | Should -Be 0
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
-        Test-Path (Join-Path $Home '.codex/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.codex/skills/adr-std/SKILL.md') | Should -BeTrue
     }
     It '--all instala em todos os encontrados' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.gemini') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.gemini') | Out-Null
         (Invoke-Cli @('install', '--all')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
-        Test-Path (Join-Path $Home '.agents/skills/adr-std/SKILL.md') | Should -BeTrue
-        Test-Path (Join-Path $Home '.codex/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.agents/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.codex/skills/adr-std') | Should -BeFalse
     }
     It 'sem terminal e sem agentes falha com código 3' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
         Remove-Item Env:ADR_STD_ANSWER -ErrorAction SilentlyContinue
         $r = Invoke-Cli @('install')
         $r.Code | Should -Be 3
         $r.Output | Should -Match '--agent'
     }
     It 'não sobrescreve pasta que não instalou (código 4)' {
-        $dest = Join-Path $Home '.claude/skills/adr-std'
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
         New-Item -ItemType Directory -Force -Path $dest | Out-Null
         Set-Content -Path (Join-Path $dest 'nota.txt') -Value 'do usuário'
         $r = Invoke-Cli @('install', 'claude-code')
@@ -129,39 +131,39 @@ Describe 'install' {
         Test-Path (Join-Path $dest 'SKILL.md') | Should -BeFalse
     }
     It 'é idempotente e substitui o que instalou' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
         (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
-        Set-Content -Path (Join-Path $Home '.claude/skills/adr-std/residuo.txt') -Value 'antigo'
+        Set-Content -Path (Join-Path $HomeDir '.claude/skills/adr-std/residuo.txt') -Value 'antigo'
         (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/residuo.txt') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/residuo.txt') | Should -BeFalse
         @(Get-Content $State | Where-Object { $_ -match "^agent`tclaude-code`t" }).Count | Should -Be 1
     }
 }
 
 Describe 'uninstall e status' {
     It 'remove só o agente indicado' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.codex') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
         Invoke-Cli @('install', 'claude-code', 'codex') | Out-Null
         (Invoke-Cli @('uninstall', 'codex')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.codex/skills/adr-std') | Should -BeFalse
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.codex/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
     }
     It 'remove todos os registrados e preserva pastas do usuário' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
         Invoke-Cli @('install', 'claude-code') | Out-Null
-        $mine = Join-Path $Home '.codex/skills/adr-std'
+        $mine = Join-Path $HomeDir '.codex/skills/adr-std'
         New-Item -ItemType Directory -Force -Path $mine | Out-Null
         Set-Content -Path (Join-Path $mine 'meu.txt') -Value 'x'
         (Invoke-Cli @('uninstall')).Code | Should -Be 0
-        Test-Path (Join-Path $Home '.claude/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std') | Should -BeFalse
         Test-Path (Join-Path $mine 'meu.txt') | Should -BeTrue
     }
     It 'status mostra "não instalada", a versão e pasta ausente como danificada' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude'), (Join-Path $Home '.codex') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
         (Invoke-Cli @('status')).Output | Should -Match 'não instalada'
         Invoke-Cli @('install', 'claude-code', 'codex') | Out-Null
         (Invoke-Cli @('status')).Output | Should -Match 'claude-code'
-        Remove-Item -Recurse -Force (Join-Path $Home '.codex/skills/adr-std')
+        Remove-Item -Recurse -Force (Join-Path $HomeDir '.codex/skills/adr-std')
         ((Invoke-Cli @('status')).Output -split "`n" | Where-Object { $_ -match 'codex' }) | Should -Match 'danificada'
     }
 }
@@ -175,22 +177,24 @@ Describe 'check' {
 
 Describe 'instalador e self-uninstall' {
     It 'instala o comando, a fonte e a skill (modo local)' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
         $r = Invoke-Installer @('--agent', 'claude-code')
         $r.Code | Should -Be 0
         Test-Path (Join-Path $Tmp 'local/adr-std/bin/adr-std.ps1') | Should -BeTrue
         Test-Path (Join-Path $Tmp 'local/adr-std/bin/adr-std.cmd') | Should -BeTrue
         Test-Path (Join-Path $Tmp 'local/adr-std/skill/SKILL.md') | Should -BeTrue
-        Test-Path (Join-Path $Home '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/SKILL.md') | Should -BeTrue
     }
     It 'self-uninstall remove skill, estado e comando' {
-        New-Item -ItemType Directory -Force -Path (Join-Path $Home '.claude') | Out-Null
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
         Invoke-Installer @('--agent', 'claude-code') | Out-Null
         $installed = Join-Path $Tmp 'local/adr-std/bin/adr-std.ps1'
         & $script:Ps -NoProfile -ExecutionPolicy Bypass -File $installed self-uninstall | Out-Null
-        Test-Path (Join-Path $Home '.claude/skills/adr-std') | Should -BeFalse
+        Test-Path (Join-Path $HomeDir '.claude/skills/adr-std') | Should -BeFalse
         Test-Path (Join-Path $Tmp 'roam/adr-std') | Should -BeFalse
         Test-Path (Join-Path $Tmp 'local/adr-std/skill') | Should -BeFalse
         Test-Path (Join-Path $Tmp 'local/adr-std/bin/adr-std.cmd') | Should -BeFalse
     }
+}
+
 }

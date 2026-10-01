@@ -115,5 +115,6 @@ if (-not $already -and -not $env:ADR_STD_NO_PATH) {
 # --- instala a skill nos agentes ----------------------------------------------
 
 if ($installed -and (Test-Path $tmp)) { Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $tmp }
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BinDir 'adr-std.ps1') install @passArgs
+$ps = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
+& $ps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $BinDir 'adr-std.ps1') install @passArgs
 exit $LASTEXITCODE
