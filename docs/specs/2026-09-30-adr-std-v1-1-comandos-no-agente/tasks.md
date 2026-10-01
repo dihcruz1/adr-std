@@ -43,6 +43,20 @@
 - [x] 3.1 — Espelhar 2.1 e 2.2 em `bin/adr-std.ps1`; depende de 2.2. Cobre os mesmos requisitos no Windows.
   - **RED/GREEN:** mesmos 5 cenários de 2.1/2.2, em `tests/test_cli.ps1` (Pester).
   - **Validação:** `pwsh -NoProfile -Command "Invoke-Pester tests/test_cli.ps1"`
+  - **Evidência (2026-10-01):** `pwsh` 7.4.6 portátil já disponível em `/tmp/pwsh-portable` (sessão
+    anterior); reaproveitado sem novo download. Implementados `Get-CommandRow`, `Get-CommandTargetRow`,
+    `Get-CommandMarkerLine`, `Test-CommandOwnedBySelf`, `Get-CommandFileContent`, `Install-Command`
+    (inicialmente `Install-Commands`, renomeado por `PSUseSingularNouns` do PSScriptAnalyzer — mesmo
+    padrão de nomenclatura já aplicado na 6.1), `Add-StateCommand`, `Remove-StateCommandsFor`, flag
+    `--no-commands`. `Invoke-Pester tests/test_cli.ps1 -CI` → **25 de 25 testes** (20 anteriores + 5
+    desta tarefa) já na primeira execução, sem RED intermediário de bug de implementação — paridade
+    direta com o bash. `Invoke-ScriptAnalyzer -Path . -Recurse -Severity Error,Warning -ExcludeRule
+    PSAvoidUsingWriteHost,PSUseShouldProcessForStateChangingFunctions` → 1 aviso (`PSUseSingularNouns`
+    em `Install-Commands`), corrigido renomeando para `Install-Command`; depois, 0 ocorrências.
+    Regressão: `shellcheck` nos scripts bash apontou 1 aviso novo (SC2016, info) no teste bash desta
+    mesma spec (`'$ARGUMENTS'` entre aspas simples, intencional — é o texto literal esperado no
+    arquivo gerado, não uma expansão) — silenciado com `# shellcheck disable=SC2016` e comentário do
+    motivo; `shellcheck` limpo depois. `bash tests/test_cli.sh` → 38/38 depois do ajuste.
 
 ## 4. Instruções da skill (`SKILL.md`)
 

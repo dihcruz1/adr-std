@@ -168,6 +168,49 @@ Describe 'uninstall e status' {
     }
 }
 
+Describe 'comandos de ação (v1.1)' {
+    It 'install gera os 10 arquivos de comando com a variável de argumento' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
+        $dir = Join-Path $HomeDir '.claude/commands'
+        Test-Path (Join-Path $dir 'adr-std-create.md') | Should -BeTrue
+        Test-Path (Join-Path $dir 'adr-std-list.md') | Should -BeTrue
+        @(Get-ChildItem $dir -Filter 'adr-std-*.md').Count | Should -Be 10
+        (Get-Content -Raw (Join-Path $dir 'adr-std-create.md')) | Should -Match '\$ARGUMENTS'
+        (Get-Content -Raw (Join-Path $dir 'adr-std-create.md')) | Should -Match 'ação "create"'
+        (Get-Content $State) -match "^command`tclaude-code`t" | Should -Not -BeNullOrEmpty
+    }
+    It '--no-commands não cria nenhum arquivo de comando' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        (Invoke-Cli @('install', '--no-commands', 'claude-code')).Code | Should -Be 0
+        Test-Path (Join-Path $HomeDir '.claude/commands/adr-std-create.md') | Should -BeFalse
+    }
+    It 'não sobrescreve um comando alheio' {
+        $dir = Join-Path $HomeDir '.claude/commands'
+        New-Item -ItemType Directory -Force -Path $dir | Out-Null
+        Set-Content -Path (Join-Path $dir 'adr-std-create.md') -Value 'comando do usuário'
+        $r = Invoke-Cli @('install', 'claude-code')
+        $r.Code | Should -Be 0
+        (Get-Content -Raw (Join-Path $dir 'adr-std-create.md')).Trim() | Should -Be 'comando do usuário'
+        Test-Path (Join-Path $dir 'adr-std-list.md') | Should -BeTrue
+    }
+    It 'gera .toml (Gemini CLI) e .prompt (Continue) com a variável certa' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.gemini'), (Join-Path $HomeDir '.continue') | Out-Null
+        (Invoke-Cli @('install', 'gemini-cli', 'continue')).Code | Should -Be 0
+        (Get-Content -Raw (Join-Path $HomeDir '.gemini/commands/adr-std-create.toml')) | Should -Match '\{\{args\}\}'
+        (Get-Content -Raw (Join-Path $HomeDir '.continue/prompts/adr-std-create.prompt')) | Should -Match '\{\{\{ input \}\}\}'
+    }
+    It 'uninstall remove os comandos registrados e preserva os alheios' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        Invoke-Cli @('install', 'claude-code') | Out-Null
+        $dir = Join-Path $HomeDir '.claude/commands'
+        Set-Content -Path (Join-Path $dir 'alheio.md') -Value 'outro'
+        (Invoke-Cli @('uninstall', 'claude-code')).Code | Should -Be 0
+        Test-Path (Join-Path $dir 'adr-std-create.md') | Should -BeFalse
+        Test-Path (Join-Path $dir 'alheio.md') | Should -BeTrue
+    }
+}
+
 Describe 'check' {
     It 'passa na fixture e falha no template (precisa de Python 3)' -Skip:(-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
         (Invoke-Cli @('check', (Join-Path $Root 'tests/fixtures/0001-cache-de-sessao-em-redis.md'))).Code | Should -Be 0

@@ -57,6 +57,45 @@ function Test-Detected([string]$Id) {
 }
 function Get-DetectedId { Get-AgentRow | Where-Object { Test-Detected $_.Id } | ForEach-Object { $_.Id } }
 
+function Get-CommandRow {
+    $f = Join-Path $Src 'commands.tsv'
+    if (-not (Test-Path $f)) { return @() }
+    Get-Content $f -Encoding UTF8 | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object {
+        $c = $_ -split "`t"
+        [pscustomobject]@{ Action = $c[0]; Description = $c[1] }
+    }
+}
+
+function Get-CommandTargetRow {
+    $f = Join-Path $Src 'command_targets.tsv'
+    if (-not (Test-Path $f)) { return @() }
+    Get-Content $f -Encoding UTF8 | Where-Object { $_ -and -not $_.StartsWith('#') } | ForEach-Object {
+        $c = $_ -split "`t"
+        [pscustomobject]@{ Id = $c[0]; Dir = $c[1]; Ext = $c[2]; ArgVar = $c[3] }
+    }
+}
+
+function Get-CommandTarget([string]$Id) { Get-CommandTargetRow | Where-Object { $_.Id -eq $Id } | Select-Object -First 1 }
+
+function Get-CommandMarkerLine([string]$Ext) {
+    if ($Ext -eq 'toml') { return '# adr-std: gerado automaticamente; não editar à mão' }
+    return '<!-- adr-std: gerado automaticamente; não editar à mão -->'
+}
+
+function Test-CommandOwnedBySelf([string]$Path) {
+    if (-not (Test-Path -LiteralPath $Path)) { return $false }
+    (Get-Content -Raw -LiteralPath $Path) -match 'adr-std: gerado automaticamente'
+}
+
+function Get-CommandFileContent([string]$Action, [string]$Description, [string]$Ext, [string]$ArgVar) {
+    $marker = Get-CommandMarkerLine $Ext
+    switch ($Ext) {
+        'toml'   { "$marker`ndescription = `"$Description`"`nprompt = `"`"`"`nUse a skill adr-std, ação `"$Action`", com estes argumentos: $ArgVar`n`"`"`"`n" }
+        'prompt' { "---`nname: adr-std-$Action`ndescription: $Description`n---`n$marker`nUse a skill adr-std, ação `"$Action`", com estes argumentos: $ArgVar`n" }
+        default  { "---`ndescription: $Description`n---`n$marker`nUse a skill adr-std, ação `"$Action`", com estes argumentos: $ArgVar`n" }
+    }
+}
+
 function Find-SimilarAgent([string]$Term) {
     foreach ($a in Get-AgentRow) { if ($a.Id -like "*$Term*") { return $a.Id } }
     return ''
@@ -108,16 +147,34 @@ function Remove-StateAgent([string]$Id) {
     Save-StateLine $keep
 }
 
+function Add-StateCommand([string]$Id, [string]$Path) {
+    $keep = @(Get-StateLine | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'command' -and $c[1] -eq $Id -and $c[2] -eq $Path) })
+    Save-StateLine ($keep + "command`t$Id`t$Path")
+}
+
+function Remove-StateCommandsFor([string]$Id) {
+    foreach ($l in Get-StateLine) {
+        $c = $l -split "`t"
+        if ($c[0] -eq 'command' -and $c[1] -eq $Id -and (Test-CommandOwnedBySelf $c[2])) {
+            Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath $c[2]
+        }
+    }
+    if (-not (Test-Path $StateFile)) { return }
+    $keep = @(Get-StateLine | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'command' -and $c[1] -eq $Id) })
+    Save-StateLine $keep
+}
+
 # --- argumentos ---------------------------------------------------------------
 
 $script:Agents = @()
 $script:All = $false
 $script:Link = $false
 $script:Dry = $false
+$script:NoCommands = $false
 $script:ReqVersion = ''
 
 function Read-Option([string[]]$Tokens) {
-    $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Dry = $false; $script:ReqVersion = ''
+    $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Dry = $false; $script:NoCommands = $false; $script:ReqVersion = ''
     $i = 0
     while ($i -lt $Tokens.Count) {
         $t = $Tokens[$i]; $i++
@@ -127,6 +184,7 @@ function Read-Option([string[]]$Tokens) {
             '^--all$'      { $script:All = $true; continue }
             '^--link$'     { $script:Link = $true; continue }
             '^--dry-run$'  { $script:Dry = $true; continue }
+            '^--no-commands$' { $script:NoCommands = $true; continue }
             '^--version$'  { if ($i -lt $Tokens.Count) { $script:ReqVersion = $Tokens[$i]; $i++ }; continue }
             '^--'          { Stop-AdrStd 2 "opção desconhecida: $t" }
             default {
@@ -210,6 +268,28 @@ function Select-Agent {
     return $chosen
 }
 
+function Install-Command([string[]]$Ids) {
+    if ($script:NoCommands) { return }
+    $actions = @(Get-CommandRow)
+    if ($actions.Count -eq 0) { return }
+    foreach ($id in $Ids) {
+        $target = Get-CommandTarget $id
+        if ($null -eq $target) { continue }
+        $destDir = ConvertTo-LocalPath $UserHome $target.Dir
+        if (-not $script:Dry) { New-Item -ItemType Directory -Force -Path $destDir | Out-Null }
+        foreach ($a in $actions) {
+            $file = Join-Path $destDir "adr-std-$($a.Action).$($target.Ext)"
+            if ((Test-Path -LiteralPath $file) -and -not (Test-CommandOwnedBySelf $file)) {
+                Write-Host "  ! $file já existe e não foi gerado pelo adr-std; mantido"
+                continue
+            }
+            if ($script:Dry) { Write-Host "  (simulação) criaria $file"; continue }
+            Set-Content -LiteralPath $file -NoNewline -Value (Get-CommandFileContent $a.Action $a.Description $target.Ext $target.ArgVar)
+            Add-StateCommand $id $file
+        }
+    }
+}
+
 function Invoke-Install([string[]]$Tokens) {
     Read-Option $Tokens
     if (-not (Test-Path (Join-Path $Src 'skill/SKILL.md'))) { Stop-AdrStd 1 "skill não encontrada em $(Join-Path $Src 'skill')" }
@@ -230,6 +310,7 @@ function Invoke-Install([string[]]$Tokens) {
         }
         if (-not $script:Dry) { Add-StateAgent $id $dest }
     }
+    Install-Command $ids
     if (-not $script:Dry) {
         Set-State 'version' (Get-AdrStdVersion)
         Set-State 'mode' $(if ($script:Link) { 'link' } else { 'copy' })
@@ -254,7 +335,7 @@ function Invoke-Uninstall([string[]]$Tokens) {
             else { Remove-Target $dest; Write-Host "  ✔ removida $dest" }
         }
         else { Write-Host "  ! $dest não foi instalada pelo adr-std; mantida" }
-        if (-not $script:Dry) { Remove-StateAgent $id }
+        if (-not $script:Dry) { Remove-StateAgent $id; Remove-StateCommandsFor $id }
     }
 }
 
