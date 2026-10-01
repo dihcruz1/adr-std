@@ -160,8 +160,21 @@
 
 ## 9. Validação final
 
-- [ ] 9.1 — Rodar `tests/cenarios.md` em pelo menos dois agentes e registrar; depende de 8.2.
-- [ ] 9.2 — Verificar a entrega contra requisitos, design e tarefas (auditoria 360°) e registrar o resultado aqui.
+- [ ] 9.1 — Rodar `tests/cenarios.md` em pelo menos dois agentes e registrar; depende de 8.2. **Bloqueada:** depende de 8.2 (push/release), que exige autorização expressa ainda não concedida.
+- [x] 9.2 — Verificar a entrega contra requisitos, design e tarefas (auditoria 360°) e registrar o resultado aqui.
+  - **Evidência (2026-10-01):** auditoria requisito → tarefa → implementação → teste, cruzando `requirements.md`, `design.md` e as evidências registradas acima (não depende de 8.2, por isso executável agora).
+    - **RF-01 a RF-16, RF-19:** cada um tem pelo menos uma tarefa em 3.x/4.x/6.1/8.1 com evidência de teste verde (bash: 32/32 em `tests/test_cli.sh`; Windows: 20/20 em `tests/test_cli.ps1`, nesta sessão). Nenhum requisito funcional órfão.
+    - **RF-17 (conteúdo do zip):** confirmado nesta sessão rodando `bash package.sh --release` de novo — `dist/adr-std.zip` com 24 arquivos: `README.md`, `LICENSE`, `VERSION`, `agents.tsv`, `install.sh`, `install.ps1`, `bin/adr-std`, `bin/adr-std.cmd`, `bin/adr-std.ps1`, os 6 atalhos de `packaging/` (Windows, macOS, Linux × instalar/desinstalar) e `skill/` completo; `adr-std.zip.sha256` gerado e conferido. Artefato removido após a verificação (não é rastreado pelo git).
+    - **RF-18 (README):** 15 seções escritas e os comandos citados executados sem erro (bash nesta spec, Windows na 7.1 adicional desta sessão); falta só a revisão humana do solicitante (7.1 continua aberta só por isso).
+    - **RNF-01 a RNF-05:** verificadas nos próprios testes (`HOME`/perfil temporário, sem `sudo`, mensagens em pt-BR conferidas nos testes que comparam texto, `agents.tsv` como dado).
+    - **R-01 a R-09:** tratadas nas tarefas indicadas na tabela abaixo; R-06 (vazamento da norma) e o tamanho de arquivo têm teste automático verde (`gate_blocks_norm_file`, `gate_blocks_big_file`); R-02 (checksum) tem teste automático verde (`update_badsum`, `installer_remote`).
+    - **Requisitos vs. design:** nenhuma divergência encontrada — a estrutura de pastas, os locais no computador do usuário (seção 3), os fluxos de instalação (seção 4), `agents.tsv` (seção 5), o formato do estado (seção 6), o contrato do comando (seção 7), PATH (seção 8) e o pacote (seção 9) do `design.md` correspondem ao que está implementado e testado em `bin/adr-std`, `bin/adr-std.ps1`, `install.sh`, `install.ps1` e `package.sh`.
+    - **Tarefas em aberto e por quê (nenhuma por falta de design ou requisito, todas por dependência externa):**
+      - 6.1: só falta `--link` (junção NTFS), `adr-std.cmd` por um humano e o PATH nativo do Windows — exigem Windows real ou CI do Windows.
+      - 7.1: só falta a revisão do solicitante.
+      - 8.1: só falta a execução real do workflow no GitHub Actions (os três sistemas operacionais); todo o resto foi reproduzido e corrigido localmente nesta sessão.
+      - 8.2, 9.1: bloqueadas por exigirem autorização expressa (push, tag, credenciais) — fora do escopo autorizado desta sessão.
+    - **Resultado:** nenhum requisito órfão, nenhuma tarefa sem requisito, nenhuma divergência entre `requirements.md`, `design.md` e o que está implementado/testado. A v1.0 está completa em tudo que é executável localmente; o que falta é estritamente CI real, Windows real/humano e autorização externa (push/tag), já listados acima e na tabela de auditoria preliminar.
 
 ## Auditoria cruzada 360° (preliminar, 2026-09-30)
 
