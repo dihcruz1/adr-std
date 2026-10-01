@@ -3,7 +3,7 @@
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-09-30 |
-| **Status** | Rascunho — Gate 1 aguardando aprovação. Nenhum `design.md` nem `tasks.md` ainda |
+| **Status** | Gate 1 aprovado (2026-10-01, por delegação expressa desta sessão); ver [design.md](design.md) e [tasks.md](tasks.md) |
 | **Depende de** | v1.0 publicada e validada em ao menos dois agentes ([spec da v1.0](../2026-09-30-adr-std-v1-0/)) |
 | **Contexto** | [ROADMAP.md](../../../ROADMAP.md) |
 
@@ -87,17 +87,24 @@ Na v1.0, a skill é ativada por pedido em linguagem natural ou pelo comando gen�
 
 ## 7. Como cada agente recebe os comandos (a confirmar no design)
 
-| Agente | Mecanismo | Arquivo de comando |
-|---|---|---|
-| Claude Code | Comandos e skills são unificados; arquivos em `commands/` | `~/.claude/commands/adr-std-<ação>.md` |
-| Gemini CLI | Comandos customizados em TOML | `~/.gemini/commands/adr-std-<ação>.toml` |
-| OpenCode | Comandos customizados em Markdown | `~/.config/opencode/commands/adr-std-<ação>.md` |
-| Continue | Prompt com `invokable: true` | Pasta global a confirmar |
-| Codex | Chamada por `$`; sem comandos separados | Nenhum (`$adr-std <ação>`) |
-| Antigravity | Workflows, que serão desativados em 2026-11-01 | Nenhum |
-| Demais | Sem comandos; pedido em linguagem natural | Nenhum |
+| Agente | Mecanismo | Arquivo de comando | Variável de argumento |
+|---|---|---|---|
+| Claude Code | Markdown em `commands/`, frontmatter YAML opcional | `~/.claude/commands/adr-std-<ação>.md` | `$ARGUMENTS` |
+| Gemini CLI | TOML com chave `prompt` | `~/.gemini/commands/adr-std-<ação>.toml` | `{{args}}` |
+| OpenCode | Markdown com frontmatter YAML (`description`, etc.) | `~/.config/opencode/commands/adr-std-<ação>.md` | `$ARGUMENTS` |
+| Continue | Arquivo `.prompt` (Markdown com frontmatter `name`/`description`) em `.continue/prompts/` | `~/.continue/prompts/adr-std-<ação>.prompt` | `{{{ input }}}` |
+| Codex | Chamada por `$`; sem comandos separados | Nenhum (`$adr-std <ação>`) | — |
+| Antigravity | Workflows, que serão desativados em 2026-11-01 | Nenhum | — |
+| Demais | Sem comandos; pedido em linguagem natural | Nenhum | — |
 
-Cada `/adr-std-<ação>` de Claude Code, Gemini CLI e OpenCode é um arquivo, então a v1.1 cria 10 arquivos por agente.
+Cada `/adr-std-<ação>` de Claude Code, Gemini CLI, OpenCode e Continue é um arquivo, então a v1.1
+cria 10 arquivos por agente nesses quatro. Fontes (pesquisadas em 2026-10-01): documentação oficial
+de cada agente (Claude Code, `docs.anthropic.com/en/docs/claude-code/slash-commands`; Gemini CLI,
+`gemini-cli.xyz/docs/en/cli/custom-commands`; OpenCode, repositório `sst/opencode`,
+`packages/web/.../commands.mdx`; Continue, `docs.continue.dev/customization/slash-commands`).
+**Continue** é adicionado nesta spec à lista de agentes com comando dedicado (a tabela original da
+seção 2026-09-30 deixava a pasta "a confirmar"; resolvido no Gate 2 por pesquisa, sem necessidade
+de decisão do solicitante — é fato documentado publicamente, não escolha de produto).
 
 ## 8. Critérios de aceite (Gherkin)
 
@@ -161,7 +168,23 @@ memória (v1.3); comandos para agentes fora da tabela da seção 7.
 
 ## 12. Pontos em aberto
 
-1. ~~`new` e `list` no agente já na v1.1?~~ **Resolvido em 2026-09-30: sim** (D-08). Falta decidir, no design, se o agente executa a numeração e a listagem só lendo os arquivos ou usando um script auxiliar em `skill/scripts/`.
-2. Pasta global de prompts do Continue e formato exato do arquivo. **A verificar** (decisão do solicitante).
-3. Como cada agente repassa os argumentos do comando para o texto do arquivo (variáveis como `$ARGUMENTS`). **A verificar.**
-4. Como medir, nos cenários de teste, que o agente respeita o limite de perguntas. **A verificar.**
+1. ~~`new` e `list` no agente já na v1.1?~~ **Resolvido em 2026-09-30: sim** (D-08).
+   **Resolvido em 2026-10-01 (Gate 2):** nenhum script auxiliar — o agente lista o diretório e lê
+   os cabeçalhos dos ADRs diretamente (mesma leitura que já faz para revisar), sem script Python
+   novo. Motivo: a v1.2 já vai trazer `adr-std new`/`list` mecânicos em Python
+   (`docs/architecture/ADR/ROADMAP.md`, etapa v1.2); criar um script auxiliar agora, só para o
+   agente, duplicaria a mesma lógica que a v1.2 vai reimplementar como CLI de verdade — violaria
+   YAGNI medido contra este `requirements.md` (nenhum requisito aqui pede script, só que a ação
+   funcione) e Rule of Three (ainda não há 3 ocorrências da mesma regra de numeração no repo: hoje
+   só existe no `check_adr.py`, que verifica, não numera).
+2. ~~Pasta global de prompts do Continue e formato exato do arquivo.~~ **Resolvido em 2026-10-01**
+   (Gate 2, pesquisa): ver seção 7.
+3. ~~Como cada agente repassa os argumentos do comando para o texto do arquivo.~~ **Resolvido em
+   2026-10-01** (Gate 2, pesquisa): ver coluna "Variável de argumento" da seção 7.
+4. Como medir, nos cenários de teste, que o agente respeita o limite de perguntas (`--ask`,
+   `--quick`). **Continua em aberto — bloqueio documentado:** não é mecanicamente verificável por
+   teste automático (depende do comportamento de um modelo de linguagem numa conversa guiada, não
+   de um programa determinístico). Fica como critério de aceite manual nos cenários de uso
+   (`tests/cenarios.md`), fora do alcance de `unittest`/`test_cli.sh`/Pester. Não bloqueia o Gate 2
+   nem a implementação: RNF-03 já registra essa limitação ("a obediência será verificada pelos
+   cenários de teste, não garantida por programa").
