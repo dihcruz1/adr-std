@@ -8,6 +8,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "skill" / "scripts" / "check_adr.py"
+SKILL_MD = ROOT / "skill" / "SKILL.md"
 FIXTURE = ROOT / "tests" / "fixtures" / "0001-cache-de-sessao-em-redis.md"
 TEMPLATE = ROOT / "skill" / "references" / "template-madr.md"
 
@@ -119,6 +120,30 @@ class CheckAdrTest(unittest.TestCase):
         )
         adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
         self.assertIn("[FALHA] A7", run(str(adr)).stdout)
+
+    def test_skill_md_documents_path_hierarchy(self):
+        text = SKILL_MD.read_text(encoding="utf-8")
+        section = text.split("### Caminho dos ADRs")[1].split("### ROADMAP.md")[0]
+        markers = [
+            "Argumento explícito",
+            ".adr-std",
+            "CONVENTIONS.md",
+            "~/.config/adr-std/config",
+            "docs/architecture/ADR/",
+        ]
+        positions = []
+        cursor = 0
+        for marker in markers:
+            cursor = section.index(marker, cursor)
+            positions.append(cursor)
+        self.assertEqual(positions, sorted(positions))
+
+    def test_check_accepts_custom_folder(self):
+        custom = self.tmp / "outra-pasta" / "custom"
+        custom.mkdir(parents=True)
+        write_adr(custom, "0001-cache-de-sessao-em-redis.md", self.fixture_text)
+        result = run(str(custom))
+        self.assertEqual(result.returncode, 0)
 
 
 if __name__ == "__main__":
