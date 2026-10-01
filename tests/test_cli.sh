@@ -455,7 +455,7 @@ test_gate_checks_skill_name() {
 
 test_gate_checks_tag_version() {
   gate_copy
-  ( cd repo && bash tests/gate.sh tag v1.0.0 ) >/dev/null 2>&1 || fail "tag igual a VERSION deveria passar" || return 1
+  ( cd repo && bash tests/gate.sh tag "v$(cat "$ROOT/VERSION")" ) >/dev/null 2>&1 || fail "tag igual a VERSION deveria passar" || return 1
   ( cd repo && bash tests/gate.sh tag v9.9.9 ) >/dev/null 2>&1 && fail "tag diferente de VERSION deveria falhar"
   return 0
 }

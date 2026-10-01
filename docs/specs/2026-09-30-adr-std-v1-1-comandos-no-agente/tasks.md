@@ -11,6 +11,8 @@
   - **RED:** `test_cli.sh` caso `command_tables` falha (arquivos ausentes).
   - **GREEN:** arquivos conforme o design.
   - **Validação:** `bash tests/test_cli.sh command_tables`
+  - **Evidência:** criados `commands.tsv` (10 ações, 2 colunas) e `command_targets.tsv` (4 agentes,
+    4 colunas); `✓ command_tables`.
 
 ## 2. Comando `adr-std install` com comandos de ação (bash)
 
@@ -22,11 +24,19 @@
     com `{{args}}`, `continue` gera `.prompt` com `{{{ input }}}`).
   - **GREEN:** implementação em `bin/adr-std`.
   - **Validação:** `bash tests/test_cli.sh install_commands install_no_commands install_commands_preserve_foreign install_commands_all_agents`
+  - **Evidência:** RED real: os 4 casos falharam (arquivo de comando ausente; `opção desconhecida:
+    --no-commands`; aviso de arquivo alheio ausente). GREEN: `command_rows`, `cmd_target_rows`,
+    `command_marker_line`, `command_owned_by_us`, `command_file_content`, `install_commands` e a
+    flag `--no-commands` implementados em `bin/adr-std`; 4 de 4 verdes. Suíte completa sem regressão
+    (38/38 depois da tarefa 2.2).
 - [x] 2.2 — `uninstall` remove os comandos registrados; depende de 2.1. Cobre RF-13 (remoção), R-02.
   - **RED:** caso `uninstall_removes_commands` (após instalar com comandos, `uninstall claude-code`
     remove os 10 arquivos; um arquivo alheio sem marcação permanece).
   - **GREEN:** implementação em `cmd_uninstall`.
   - **Validação:** `bash tests/test_cli.sh uninstall_removes_commands`
+  - **Evidência:** RED real (comando não removido/arquivo alheio apagado por engano, teste falhava
+    por ausência de `rm`). GREEN: `state_add_command`/`state_del_commands_for` implementados,
+    chamados em `cmd_uninstall`; 1 de 1 verde; arquivo alheio sem marcação preservado.
 
 ## 3. Paridade PowerShell
 
@@ -43,11 +53,20 @@
     `--quick`, "pendente", "sugestão", "Proposto", "não apaga" (supersede), "sem perguntas" (new).
   - **GREEN:** seção escrita em `SKILL.md`.
   - **Validação:** `python3 -m unittest discover -s tests -p 'test_check_adr.py' -v`
+  - **Evidência:** RED real: primeira tentativa do marcador "não apaga" não encontrada no texto
+    escrito (o texto real diz "nunca apagar") — corrigido o marcador do teste. GREEN: 15 de 15
+    testes de `test_check_adr.py`.
 
 ## 5. Publicação
 
 - [x] 5.1 — `VERSION` → `1.1.0`, `CHANGELOG.md` atualizado; depende de 4.1.
   - **Validação:** `cat VERSION`; revisão do `CHANGELOG.md`.
+  - **Evidência:** `VERSION` = `1.1.0`. `CHANGELOG.md` ganhou as seções `[1.1.0]` e `[1.0.0]`
+    (esta última estava registrada como "Não lançado" por engano, apesar de já publicada — corrigido
+    nesta tarefa). Efeito colateral encontrado e corrigido: `tests/test_cli.sh` tinha
+    `gate.sh tag v1.0.0` com a versão escrita literalmente; corrigido para ler `VERSION` em tempo de
+    execução (`"v$(cat "$ROOT/VERSION")"`), senão quebraria a cada bump de versão. Suíte completa
+    depois do bump: `bash tests/test_cli.sh` 38/38; `python3 -m unittest discover -s tests -p 'test_check_*.py'` 24/24.
 
 ## Auditoria cruzada
 
