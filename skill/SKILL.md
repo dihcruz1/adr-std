@@ -156,3 +156,4 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 | `references/template-madr.md` | Template do ADR, com os campos da 6.10 |
 | `references/checklist.md` | Checklist de conformidade, com a origem de cada item |
 | `scripts/check_adr.py` | Verificação automática dos itens `[auto]` (Python 3, só biblioteca padrão) |
+| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`); o agente não precisa dele, mas pode usá-lo |
