@@ -42,6 +42,13 @@ class CheckAdrTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("[FALHA] B1", result.stdout)
 
+    def test_folder_scan_ignores_roadmap(self):
+        write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", self.fixture_text)
+        write_adr(self.tmp, "ROADMAP.md", "# Roadmap\n\nnão é um ADR\n")
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertNotIn("ROADMAP.md", result.stdout)
+
     def test_name_pattern_accepts_legacy_numbering(self):
         text = self.fixture_text.replace("ADR-0001", "ADR-1")
         adr = write_adr(self.tmp, "1-cache-de-sessao.md", text)

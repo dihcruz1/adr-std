@@ -38,7 +38,7 @@ def has_placeholder(text: str) -> bool:
     """Marcador de template (<...>) fora de código em linha: `<AAAA-MM-DD>` num caminho não conta."""
     return bool(PLACEHOLDER.search(INLINE_CODE.sub("", text)))
 RATIONALE_MARKER = re.compile(r"\b(porque|pois|justificativa|rationale|because)\b", re.IGNORECASE)
-IGNORED_FILES = {"template-madr.md", "_template-madr.md", "CONVENTIONS.md", "README.md"}
+IGNORED_FILES = {"template-madr.md", "_template-madr.md", "CONVENTIONS.md", "README.md", "ROADMAP.md"}
 
 
 @dataclass
