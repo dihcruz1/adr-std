@@ -5,6 +5,24 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [1.3.0] - 2026-10-01
+
+### Adicionado
+- Comandos de conversa no terminal: `adr-std create`, `supersede`, `review`, `audit` e `ask` abrem um
+  agente (Claude Code, Codex, Gemini CLI ou OpenCode) com o pedido inicial que chama a skill. `create` e
+  `supersede` repassam `--ask N` e `--quick`.
+- Escolha do agente por prioridade: indicado no comando (nome seguido da descrição, ou `--agent`);
+  agente padrão (`adr-std config agent <nome>`, `--unset` desfaz, sem argumento mostra); menu com o
+  último usado pré-selecionado (Enter repete); sem terminal e sem as anteriores, erro pedindo `--agent`.
+  Nome parecido gera sugestão ("quis dizer claude-code?"); descrição entre aspas continua descrição.
+- `agent_launch.tsv`: como abrir cada agente pelo terminal (uma linha por agente).
+- O pedido vai ao programa do agente como um único argumento, sem `eval` nem shell.
+- Paridade no PowerShell; testes unitários agora também rodam no CI (`test_*.py`).
+
+### Corrigido
+- `check_adr.py` tratava o `ROADMAP.md` da pasta de ADRs (ADR-0002) como se fosse um ADR e reprovava
+  a pasta inteira; agora ele é ignorado, como `README.md` e `CONVENTIONS.md`.
+
 ## [1.2.0] - 2026-10-01
 
 ### Adicionado

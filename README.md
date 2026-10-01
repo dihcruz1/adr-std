@@ -264,6 +264,9 @@ adr-std install --all                    # todos os encontrados
 | `adr-std link <ADR-A> <tipo> <ADR-B>` | Registra a relação nos dois ADRs, com o tipo inverso (Python 3) |
 | `adr-std organize --dry-run` | Mostra o plano de renumeração, sem alterar nada (Python 3) |
 
+| `adr-std create\|supersede\|review\|audit\|ask [agente] [descrição]` | Abre um agente com a skill e o pedido inicial. `create` e `supersede` aceitam `--ask N` e `--quick` |
+| `adr-std config agent [nome]` | Mostra o agente padrão dos comandos acima; com `nome` define; `--unset` remove |
+
 `new`, `list`, `link` e `organize` aceitam `--path PASTA` e `--name-pattern REGEX`. Sem `--path`, a pasta vem de
 `.adr-std` (campo `path`), depois de `~/.config/adr-std/config` e, por fim, `docs/architecture/ADR`.
 | `adr-std version` · `adr-std help` | Versão e ajuda |
@@ -275,6 +278,20 @@ Regras de segurança do comando:
 - **Repetir** `install` ou `update` não gera erro nem cópias duplicadas.
 - **Sem terminal interativo** (script, automação) e sem `--agent` ou `--all`, ele falha e pede a indicação dos agentes.
 - **Atualização com checksum inválido:** nada é alterado (código 5).
+
+**Comandos de conversa (`create`, `supersede`, `review`, `audit`, `ask`).** Abrem um agente já instalado, que conduz a
+conversa com a skill. Agentes que abrem pelo terminal: `claude-code`, `codex`, `gemini-cli` e `opencode`. O agente é
+escolhido nesta ordem:
+
+1. o indicado no comando: `adr-std create codex "usar Postgres"` ou `adr-std create --agent codex "usar Postgres"`
+   (o nome só vale como agente se for exatamente um da lista **e** vier seguido da descrição; um nome parecido gera a
+   sugestão "quis dizer claude-code?"; uma descrição entre aspas que comece com o nome de um agente continua sendo
+   descrição);
+2. o agente padrão (`adr-std config agent claude-code`), com aviso na tela;
+3. um menu com os agentes que têm a skill instalada, com o último usado pré-selecionado (Enter repete);
+4. sem terminal interativo e sem 1 nem 2: erro pedindo `--agent`.
+
+A descrição é entregue ao agente como um único argumento; nada dela é executado pelo shell.
 
 ## 9. Confirmar que funcionou
 
@@ -324,16 +341,16 @@ apaga a pasta `adr-std` do agente e copia a nova.
 
 ## 13. Limitações e próximas versões
 
-**Versão 1.2 (esta):** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
+**Versão 1.3 (esta):** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
 `adr-std` (`install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`, `new`, `list`, `link`,
-`organize --dry-run`).
+`organize --dry-run`, `create`, `supersede`, `review`, `audit`, `ask`, `config agent`).
 
 **Planejado** (detalhes e decisões em [`ROADMAP.md`](ROADMAP.md)):
 
 | Versão | Conteúdo |
 |---|---|
 | 1.1 | Comandos por ação dentro do agente: `/adr-std-create` (com `--ask N` e `--quick`), `/adr-std-supersede`, `/adr-std-review`, `/adr-std-organize`, `/adr-std-link`, `/adr-std-audit`, `/adr-std-check`, `/adr-std-ask` |
-| 1.3 | Comandos de conversa no terminal (`adr-std create ...`) abrindo o agente escolhido, com menu que lembra a última escolha e `adr-std config agent` |
+| Futuro | `organize` real (renomeia arquivos), `adr-std config path`, mais agentes no menu (a forma de abrir pelo terminal precisa ser confirmada em cada um) |
 
 **Limitações conhecidas:**
 
@@ -353,6 +370,7 @@ apaga a pasta `adr-std` do agente e copia a nova.
 | `skill/references/checklist.md` | Checklist de conformidade, com a origem de cada item |
 | `skill/scripts/check_adr.py` | Verificação automática dos itens mecânicos |
 | `skill/scripts/adr_cli.py` | Comandos `new`, `list`, `link` e `organize --dry-run` do terminal |
+| `agent_launch.tsv` | Como abrir cada agente pelo terminal (usado por `create`, `supersede`, `review`, `audit`, `ask`) |
 
 ## 15. Licença e contribuição
 

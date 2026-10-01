@@ -90,7 +90,7 @@ rm -rf "${DATA_DIR:?}/skill" "${DATA_DIR:?}/bin"
 cp -R "$SRC/skill" "$DATA_DIR/skill"
 cp -R "$SRC/bin" "$DATA_DIR/bin"
 cp "$SRC/agents.tsv" "$SRC/VERSION" "$SRC/install.sh" "$DATA_DIR/"
-for f in commands.tsv command_targets.tsv; do [ -f "$SRC/$f" ] && cp "$SRC/$f" "$DATA_DIR/"; done
+for f in commands.tsv command_targets.tsv agent_launch.tsv; do [ -f "$SRC/$f" ] && cp "$SRC/$f" "$DATA_DIR/"; done
 [ -f "$SRC/README.md" ] && cp "$SRC/README.md" "$DATA_DIR/README.md"
 chmod +x "$DATA_DIR/bin/adr-std"
 cp "$DATA_DIR/bin/adr-std" "$BIN_DIR/adr-std"

@@ -1,0 +1,6 @@
+# Agentes que abrem pelo terminal com um pedido inicial (v1.3). Colunas separadas por TAB.
+# id	binario	flag-do-pedido ("-" = pedido como argumento posicional)
+claude-code	claude	-
+codex	codex	-
+gemini-cli	gemini	-i
+opencode	opencode	--prompt

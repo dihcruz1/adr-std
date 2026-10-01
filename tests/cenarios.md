@@ -68,6 +68,15 @@ python3 skill/scripts/check_adr.py skill/references/template-madr.md            
 - **Esperado:** o agente cria o ADR e pede autorização expressa antes do commit (ou segue a regra do
   projeto).
 
+## Cenários dos comandos de conversa no terminal (v1.3, verificação manual)
+
+Os testes automáticos usam agentes falsos; abrir o agente real é manual (R-03 da spec da v1.3).
+
+- **T1:** com a skill instalada em Claude Code, `adr-std create claude-code "usar Postgres"` abre o Claude Code já pedindo
+  a ação `create` da skill, com a decisão informada.
+- **T2:** repetir em Codex (`codex`), Gemini CLI (`gemini-cli`, sessão continua interativa) e OpenCode (`opencode`).
+- **T3:** `adr-std config agent codex` e depois `adr-std audit` abre o Codex com o aviso do agente padrão.
+
 ## Registro de execução
 
 | Cenário | Claude Code | Codex | Gemini | Antigravity | OpenCode | Observações |

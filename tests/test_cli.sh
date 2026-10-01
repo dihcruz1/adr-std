@@ -518,6 +518,213 @@ test_package_has_command_tables() {
 }
 
 # ---------------------------------------------------------------------------
+# v1.3: comandos de conversa no terminal
+
+# Cria binários falsos de agente num diretório do PATH; cada um grava os argumentos recebidos
+# (um por linha, com o nome do agente) em $PWD/fake.log.
+fake_agents() {
+  mkdir -p fakebin emptybin
+  local b
+  for b in claude codex gemini opencode; do
+    # shellcheck disable=SC2016 # o script falso deve receber "$@" literal, sem expandir aqui
+    printf '#!/bin/sh\necho "%s" >> "%s/fake.log"\nfor a in "$@"; do printf "ARG:%%s\\n" "$a" >> "%s/fake.log"; done\n' \
+      "$b" "$PWD" "$PWD" > "fakebin/$b"
+    chmod +x "fakebin/$b"
+  done
+}
+
+# Roda o adr-std com os agentes falsos na frente do PATH.
+cv() { PATH="$PWD/fakebin:$PATH" "$CLI" "$@"; }
+
+REQ_PREFIX='Use a skill adr-std, ação'
+
+test_launch_table() {
+  local f="$ROOT/agent_launch.tsv"
+  assert_file "$f" || return 1
+  local rows bad id
+  rows=$(grep -v '^#' "$f" | grep -c .)
+  assert_eq "$rows" "4" "agentes que abrem pelo terminal" || return 1
+  bad=$(grep -v '^#' "$f" | grep . | awk -F'\t' 'NF != 3' | wc -l)
+  assert_eq "$bad" "0" "linhas sem 3 colunas" || return 1
+  while IFS= read -r id; do
+    grep -v '^#' "$ROOT/agents.tsv" | cut -f1 | grep -qxF "$id" || fail "agente fora do agents.tsv: $id" || return 1
+  done < <(grep -v '^#' "$f" | grep . | cut -f1)
+}
+
+test_config_agent() {
+  local out code
+  out="$("$CLI" config agent)" || return 1
+  assert_contains "$out" "nenhum agente padrão" || return 1
+  "$CLI" config agent codex >/dev/null || fail "definir falhou" || return 1
+  out="$("$CLI" config agent)"; assert_contains "$out" "codex" || return 1
+  assert_eq "$(grep -P '^default_agent\t' "$(state_file)" | cut -f2)" "codex" "estado" || return 1
+  "$CLI" config agent --unset >/dev/null || return 1
+  out="$("$CLI" config agent)"; assert_contains "$out" "nenhum agente padrão" || return 1
+  out="$("$CLI" config agent cursor 2>&1)"; code=$?
+  assert_eq "$code" "2" "agente que não abre pelo terminal" || return 1
+  out="$("$CLI" config agent claud 2>&1)"; code=$?
+  assert_eq "$code" "2" "nome inválido" || return 1
+  out="$("$CLI" config 2>&1)"; code=$?
+  assert_eq "$code" "2" "config sem subcomando"
+}
+
+test_converse_explicit_agent() {
+  fake_agents
+  mkdir -p "$HOME/.claude" "$HOME/.codex"
+  "$CLI" install claude-code codex >/dev/null || return 1
+  cv create codex usar Postgres >/dev/null || fail "create falhou" || return 1
+  assert_eq "$(cat fake.log)" "codex
+ARG:$REQ_PREFIX \"create\", com estes argumentos: usar Postgres" "chamada do codex" || return 1
+  rm fake.log
+  cv ask --agent claude-code "o que é um stakeholder?" >/dev/null || fail "ask --agent falhou" || return 1
+  assert_eq "$(cat fake.log)" "claude
+ARG:$REQ_PREFIX \"ask\", com estes argumentos: o que é um stakeholder?" "chamada do claude" || return 1
+  rm fake.log
+  cv audit --agent=codex >/dev/null || return 1
+  grep -qF 'ação "audit"' fake.log
+}
+
+test_converse_gemini_and_opencode_flags() {
+  fake_agents
+  cv review --agent gemini-cli docs >/dev/null || fail "gemini falhou" || return 1
+  assert_eq "$(cat fake.log)" "gemini
+ARG:-i
+ARG:$REQ_PREFIX \"review\", com estes argumentos: docs" "gemini usa -i" || return 1
+  rm fake.log
+  cv review --agent opencode docs >/dev/null || return 1
+  assert_eq "$(cat fake.log)" "opencode
+ARG:--prompt
+ARG:$REQ_PREFIX \"review\", com estes argumentos: docs" "opencode usa --prompt"
+}
+
+test_converse_description_with_agent_name() {
+  fake_agents
+  mkdir -p "$HOME/.claude"
+  "$CLI" install claude-code >/dev/null || return 1
+  "$CLI" config agent claude-code >/dev/null || return 1
+  cv create "codex deve ser o padrão" >/dev/null || fail "create falhou" || return 1
+  assert_eq "$(head -1 fake.log)" "claude" "o termo entre aspas é descrição" || return 1
+  grep -qF "argumentos: codex deve ser o padrão" fake.log
+}
+
+test_converse_similar_agent() {
+  fake_agents
+  local out code
+  out="$(cv create claude usar Postgres 2>&1)"; code=$?
+  assert_eq "$code" "2" "código" || return 1
+  assert_contains "$out" "quis dizer claude-code" || return 1
+  assert_no_file fake.log || return 1
+  out="$(cv create cursor usar Postgres 2>&1)"; code=$?
+  assert_eq "$code" "2" "agente que não abre pelo terminal" || return 1
+  assert_contains "$out" "claude-code" || return 1
+  assert_no_file fake.log
+}
+
+test_converse_default_agent() {
+  fake_agents
+  "$CLI" config agent codex >/dev/null || return 1
+  local out; out="$(cv audit </dev/null)" || fail "audit falhou" || return 1
+  assert_contains "$out" "agente padrão codex" || return 1
+  assert_eq "$(head -1 fake.log)" "codex" "abriu o padrão" || return 1
+  rm fake.log
+  cv audit --agent claude-code >/dev/null || return 1
+  assert_eq "$(head -1 fake.log)" "claude" "o indicado vence o padrão"
+}
+
+test_converse_menu_last_used() {
+  fake_agents
+  mkdir -p "$HOME/.claude" "$HOME/.codex"
+  "$CLI" install claude-code codex >/dev/null || return 1
+  printf '2\n' > answer
+  local out; out="$(ADR_STD_TTY="$PWD/answer" cv audit)" || fail "menu falhou" || return 1
+  assert_contains "$out" "1) claude-code" || return 1
+  assert_contains "$out" "2) codex" || return 1
+  assert_eq "$(head -1 fake.log)" "codex" "escolha 2" || return 1
+  assert_eq "$(grep -P '^last_agent\t' "$(state_file)" | cut -f2)" "codex" "último usado" || return 1
+  rm fake.log
+  printf '\n' > answer
+  out="$(ADR_STD_TTY="$PWD/answer" cv audit)" || return 1
+  assert_contains "$out" "[2]" || return 1
+  assert_eq "$(head -1 fake.log)" "codex" "Enter repete o último usado" || return 1
+  printf '9\n' > answer
+  ADR_STD_TTY="$PWD/answer" cv audit >/dev/null 2>&1 && fail "escolha inválida deveria falhar"
+  return 0
+}
+
+test_converse_no_tty() {
+  fake_agents
+  mkdir -p "$HOME/.claude"
+  "$CLI" install claude-code >/dev/null || return 1
+  local out code
+  out="$(ADR_STD_TTY="/nao/existe" cv audit 2>&1)"; code=$?
+  assert_eq "$code" "3" "código" || return 1
+  assert_contains "$out" "--agent" || return 1
+  assert_no_file fake.log
+}
+
+test_converse_no_eligible() {
+  fake_agents
+  printf '1\n' > answer
+  local out code
+  out="$(ADR_STD_TTY="$PWD/answer" cv audit 2>&1)"; code=$?
+  assert_eq "$code" "3" "código" || return 1
+  assert_contains "$out" "adr-std install" || return 1
+  assert_no_file fake.log
+}
+
+test_converse_injection() {
+  fake_agents
+  # shellcheck disable=SC2016 # texto de injeção literal: não deve ser expandido pelo teste
+  cv create --agent codex 'x; touch PWNED $(touch PWNED2) `touch PWNED3`' >/dev/null || return 1
+  assert_no_file PWNED || return 1
+  assert_no_file PWNED2 || return 1
+  assert_no_file PWNED3 || return 1
+  # shellcheck disable=SC2016 # idem
+  grep -qF 'argumentos: x; touch PWNED $(touch PWNED2) `touch PWNED3`' fake.log
+}
+
+test_converse_ask_quick() {
+  fake_agents
+  cv create codex --ask 5 usar x >/dev/null || return 1
+  grep -qF 'argumentos: --ask 5 usar x' fake.log || fail "--ask não repassado" || return 1
+  rm fake.log
+  cv supersede codex -k ADR-0001 >/dev/null || return 1
+  grep -qF 'argumentos: --quick ADR-0001' fake.log || fail "--quick não repassado" || return 1
+  local code
+  cv create codex --ask abc x >/dev/null 2>&1; code=$?
+  assert_eq "$code" "2" "--ask não inteiro" || return 1
+  cv audit --agent codex --quick >/dev/null 2>&1; code=$?
+  assert_eq "$code" "2" "--quick fora de create/supersede" || return 1
+  cv ask --agent codex >/dev/null 2>&1; code=$?
+  assert_eq "$code" "2" "ask sem pergunta"
+}
+
+test_converse_missing_binary() {
+  fake_agents
+  local out code
+  out="$(PATH="$PWD/emptybin:/usr/bin:/bin" "$CLI" create --agent codex x 2>&1)"; code=$?
+  assert_eq "$code" "5" "código" || return 1
+  assert_contains "$out" "codex" || return 1
+  assert_no_file fake.log
+}
+
+test_help_lists_converse() {
+  local out; out="$("$CLI" help)" || return 1
+  for c in create supersede review audit ask config; do
+    assert_contains "$out" "  $c " || return 1
+  done
+}
+
+test_installer_copies_launch_table() {
+  mkdir -p "$HOME/.claude"
+  installer --agent claude-code >/dev/null 2>&1 < /dev/null || fail "instalação falhou" || return 1
+  assert_file "$HOME/.local/share/adr-std/agent_launch.tsv" || return 1
+  local out="$PWD/out"
+  ( cd "$ROOT" && bash ./package.sh "$out" ) >/dev/null 2>&1 || fail "package.sh falhou" || return 1
+  unzip -Z1 "$out/adr-std.zip" | grep -qxF agent_launch.tsv || fail "zip sem agent_launch.tsv"
+}
+
+# ---------------------------------------------------------------------------
 # executor
 
 run_test() {
