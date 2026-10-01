@@ -17,6 +17,33 @@ Funciona em qualquer agente que leia `SKILL.md`. Documentação e respostas em p
    ela prevalece. Onde conflitar com a norma, **avise o usuário** e peça decisão.
 3. Ao citar uma exigência, diga a origem: **norma** (com a cláusula), **projeto** ou **skill**.
 
+## Convenções do projeto (ADR-0001 e ADR-0003)
+
+### Caminho dos ADRs
+
+Resolva o caminho onde os ADRs são lidos e gravados nesta ordem (pare na primeira que encontrar):
+
+1. Argumento explícito de pasta passado no comando (ex.: `--path <pasta>`).
+2. Campo `path` no arquivo `.adr-std` na raiz do repositório.
+3. Convenção declarada em `docs/architecture/ADR/CONVENTIONS.md` ou em `AGENTS.md`.
+4. Campo `path` em `~/.config/adr-std/config` (Linux/macOS) ou `%APPDATA%\adr-std\config` (Windows).
+5. **Padrão:** `docs/architecture/ADR/`
+
+### ROADMAP.md (atualização automática)
+
+Sempre que criar ou modificar um ADR **ou** uma Spec como parte de qualquer ação da skill:
+
+1. Localize o arquivo `ROADMAP.md` dentro da pasta de ADRs do projeto.
+2. Adicione ou atualize **apenas** a linha correspondente ao ADR ou Spec afetado.
+3. Use o Status conforme a situação detectada:
+   - ADR criado, sem Spec → `Não iniciada`
+   - Spec com apenas `requirements.md` → `Só requisitos`
+   - Spec com `design.md` criado → `Em andamento`
+   - Spec com `tasks.md` e todas as tarefas `[x]` → `Concluída`
+4. Não altere linhas de outros ADRs ou Specs que não foram tocados.
+5. Ao concluir a ação principal, informe ao usuário: _"ROADMAP atualizado: [linha afetada]."_
+6. Se o `ROADMAP.md` não existir na pasta de ADRs, crie-o com a estrutura definida no ADR-0002.
+
 ## Tarefas
 
 ### Criar um ADR
