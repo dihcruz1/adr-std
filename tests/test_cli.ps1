@@ -59,7 +59,7 @@ Describe 'version, help e agents' {
     }
     It 'help lista os comandos e comando inválido falha' {
         $r = Invoke-Cli @('help')
-        foreach ($c in 'install', 'update', 'uninstall', 'self-uninstall', 'status', 'agents', 'check', 'new', 'list', 'link', 'organize', 'version') { $r.Output | Should -Match $c }
+        foreach ($c in 'install', 'update', 'uninstall', 'self-uninstall', 'status', 'agents', 'check', 'new', 'list', 'link', 'organize', 'create', 'supersede', 'review', 'audit', 'ask', 'config', 'version') { $r.Output | Should -Match $c }
         (Invoke-Cli @('comando-inexistente')).Code | Should -Be 2
     }
     It 'agents marca os agentes encontrados' {
@@ -238,6 +238,125 @@ Describe 'instalador copia as tabelas de comandos' {
         $r.Code | Should -Be 0
         Test-Path (Join-Path $Tmp 'local/adr-std/commands.tsv') | Should -BeTrue
         Test-Path (Join-Path $Tmp 'local/adr-std/command_targets.tsv') | Should -BeTrue
+    }
+}
+
+Describe 'config agent (v1.3)' {
+    It 'mostra, define e remove o agente padrão; recusa os que não abrem pelo terminal' {
+        (Invoke-Cli @('config', 'agent')).Output | Should -Match 'nenhum agente padrão'
+        (Invoke-Cli @('config', 'agent', 'codex')).Code | Should -Be 0
+        (Invoke-Cli @('config', 'agent')).Output | Should -Match 'codex'
+        (Get-Content $State | Where-Object { $_ -match '^default_agent' }) | Should -Match "`tcodex$"
+        (Invoke-Cli @('config', 'agent', '--unset')).Code | Should -Be 0
+        (Invoke-Cli @('config', 'agent')).Output | Should -Match 'nenhum agente padrão'
+        (Invoke-Cli @('config', 'agent', 'cursor')).Code | Should -Be 2
+        (Invoke-Cli @('config', 'agent', 'claud')).Code | Should -Be 2
+        (Invoke-Cli @('config')).Code | Should -Be 2
+    }
+    It 'agent_launch.tsv tem 4 agentes válidos com 3 colunas' {
+        $rows = Get-Content (Join-Path $Root 'agent_launch.tsv') | Where-Object { $_ -and -not $_.StartsWith('#') }
+        $rows.Count | Should -Be 4
+        foreach ($r in $rows) { ($r -split "`t").Count | Should -Be 3 }
+    }
+}
+
+Describe 'comandos de conversa (v1.3)' {
+    BeforeEach {
+        $script:Fake = Join-Path $Tmp 'fakebin'
+        $script:Log = Join-Path $Tmp 'fake.log'
+        New-Item -ItemType Directory -Force -Path $Fake | Out-Null
+        foreach ($b in 'claude', 'codex', 'gemini', 'opencode') {
+            $body = "#!/bin/sh`necho `"$b`" >> `"$Log`"`nfor a in `"`$@`"; do printf 'ARG:%s\n' `"`$a`" >> `"$Log`"; done`n"
+            $p = Join-Path $Fake $b
+            [IO.File]::WriteAllText($p, $body)
+            if ($env:OS -ne 'Windows_NT') { chmod +x $p }
+        }
+        $script:OldPath = $env:PATH
+        $env:PATH = "$Fake$([IO.Path]::PathSeparator)$env:PATH"
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
+        Invoke-Cli @('install', 'claude-code', 'codex') | Out-Null
+    }
+    AfterEach { $env:PATH = $OldPath }
+
+    It 'abre o agente indicado com o pedido como um único argumento' -Skip:($env:OS -eq 'Windows_NT') {
+        (Invoke-Cli @('create', 'codex', 'usar', 'Postgres')).Code | Should -Be 0
+        (Get-Content $Log) | Should -Be @('codex', 'ARG:Use a skill adr-std, ação "create", com estes argumentos: usar Postgres')
+    }
+    It 'gemini usa -i e opencode usa --prompt' -Skip:($env:OS -eq 'Windows_NT') {
+        Invoke-Cli @('review', '--agent', 'gemini-cli', 'docs') | Out-Null
+        (Get-Content $Log)[1] | Should -Be 'ARG:-i'
+        Remove-Item $Log
+        Invoke-Cli @('review', '--agent', 'opencode', 'docs') | Out-Null
+        (Get-Content $Log)[1] | Should -Be 'ARG:--prompt'
+    }
+    It 'descrição entre aspas que começa com nome de agente continua descrição' -Skip:($env:OS -eq 'Windows_NT') {
+        Invoke-Cli @('config', 'agent', 'claude-code') | Out-Null
+        (Invoke-Cli @('create', 'codex deve ser o padrão')).Code | Should -Be 0
+        (Get-Content $Log)[0] | Should -Be 'claude'
+        (Get-Content $Log)[1] | Should -Match 'argumentos: codex deve ser o padrão$'
+    }
+    It 'nome parecido sugere o agente e não abre nada' {
+        $r = Invoke-Cli @('create', 'claude', 'usar', 'Postgres')
+        $r.Code | Should -Be 2
+        $r.Output | Should -Match 'quis dizer claude-code'
+        $r = Invoke-Cli @('create', 'cursor', 'usar', 'Postgres')
+        $r.Code | Should -Be 2
+        Test-Path $Log | Should -BeFalse
+    }
+    It 'usa o agente padrão e avisa' -Skip:($env:OS -eq 'Windows_NT') {
+        Invoke-Cli @('config', 'agent', 'codex') | Out-Null
+        $r = Invoke-Cli @('audit')
+        $r.Output | Should -Match 'agente padrão codex'
+        (Get-Content $Log)[0] | Should -Be 'codex'
+    }
+    It 'menu: escolhe pelo número e Enter repete o último usado' -Skip:($env:OS -eq 'Windows_NT') {
+        $r = Invoke-Cli @('audit') -Answer '2'
+        $r.Output | Should -Match '2\) codex'
+        (Get-Content $Log)[0] | Should -Be 'codex'
+        Remove-Item $Log
+        $r = Invoke-Cli @('audit') -Answer ' '
+        $r.Output | Should -Match '\[2\]'
+        (Get-Content $Log)[0] | Should -Be 'codex'
+        (Invoke-Cli @('audit') -Answer '9').Code | Should -Be 2
+    }
+    It 'sem terminal e sem padrão falha com código 3 pedindo --agent' {
+        $r = Invoke-Cli @('audit')
+        if ($r.Code -ne 3) { Set-ItResult -Inconclusive -Because 'ambiente com terminal interativo' } else { $r.Output | Should -Match '--agent' }
+    }
+    It 'sem agente elegível falha com código 3 pedindo install' {
+        Invoke-Cli @('uninstall') | Out-Null
+        $r = Invoke-Cli @('audit') -Answer '1'
+        $r.Code | Should -Be 3
+        $r.Output | Should -Match 'adr-std install'
+    }
+    It 'a descrição nunca vira comando' -Skip:($env:OS -eq 'Windows_NT') {
+        Invoke-Cli @('create', '--agent', 'codex', 'x; touch PWNED $(touch PWNED2)') | Out-Null
+        Test-Path (Join-Path $Tmp 'PWNED') | Should -BeFalse
+        (Get-Content $Log)[1] | Should -Match 'argumentos: x; touch PWNED \$\(touch PWNED2\)$'
+    }
+    It '--ask e --quick: repassa em create/supersede e recusa nos demais' -Skip:($env:OS -eq 'Windows_NT') {
+        Invoke-Cli @('create', 'codex', '--ask', '5', 'usar', 'x') | Out-Null
+        (Get-Content $Log)[1] | Should -Match 'argumentos: --ask 5 usar x$'
+        (Invoke-Cli @('create', 'codex', '--ask', 'abc', 'x')).Code | Should -Be 2
+        (Invoke-Cli @('audit', '--agent', 'codex', '--quick')).Code | Should -Be 2
+        (Invoke-Cli @('ask', '--agent', 'codex')).Code | Should -Be 2
+    }
+    It 'binário do agente ausente falha com código 5' {
+        Remove-Item (Join-Path $Fake 'codex')
+        $env:PATH = "$Fake$([IO.Path]::PathSeparator)/usr/bin$([IO.Path]::PathSeparator)/bin"
+        if (Get-Command codex -CommandType Application -ErrorAction SilentlyContinue) { Set-ItResult -Skipped -Because 'codex real no PATH' }
+        else {
+            $env:PATH = $OldPath
+            $env:PATH = (($OldPath -split [IO.Path]::PathSeparator | Where-Object { -not (Test-Path (Join-Path $_ 'codex')) }) -join [IO.Path]::PathSeparator)
+            (Invoke-Cli @('create', '--agent', 'codex', 'x')).Code | Should -Be 5
+        }
+    }
+}
+
+Describe 'instalador copia agent_launch.tsv' {
+    It 'install.ps1 copia a tabela de abertura' {
+        (Invoke-Installer @('--agent', 'claude-code')).Code | Should -Be 0
+        Test-Path (Join-Path $Tmp 'local/adr-std/agent_launch.tsv') | Should -BeTrue
     }
 }
 

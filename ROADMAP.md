@@ -8,7 +8,7 @@ Visão curta das versões. O detalhe de cada versão fica na sua spec em `docs/s
 | **1.0** | Skill (guia da 42010, template, checklist, `check_adr.py`); instalação em vários agentes; comando `adr-std` (`install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`); pacote zip; README | Em execução; falta Windows validado, publicação e validação nos agentes | [2026-09-30-adr-std-v1-0](docs/specs/2026-09-30-adr-std-v1-0/) |
 | **1.1** | Comandos por ação dentro do agente: `/adr-std-create`, `-supersede`, `-review`, `-organize`, `-link`, `-audit`, `-check`, `-ask`, `-new`, `-list`; conversa guiada com `--ask N` e `--quick` | Concluída (bash e PowerShell; limite de perguntas é bloqueio documentado, não mecanicamente verificável) | [2026-09-30-adr-std-v1-1-comandos-no-agente](docs/specs/2026-09-30-adr-std-v1-1-comandos-no-agente/) |
 | **1.2** | Comandos mecânicos no terminal, em Python: `adr-std new`, `list`, `link`, `organize --dry-run` (e o `check` que já existe), com os mesmos nomes dos comandos do agente | Concluída (bash e PowerShell; `organize` real fica fora do escopo, só `--dry-run`) | [2026-10-01-adr-std-v1-2-comandos-terminal](docs/specs/2026-10-01-adr-std-v1-2-comandos-terminal/) |
-| **1.3** | Comandos de conversa no terminal (`adr-std create`, `supersede`, `review`, `audit`, `ask`) que abrem um agente escolhido; agente padrão (`adr-std config agent`) e menu com memória | Decisões registradas abaixo; spec ainda não aberta | — |
+| **1.3** | Comandos de conversa no terminal (`adr-std create`, `supersede`, `review`, `audit`, `ask`) que abrem um agente escolhido; agente padrão (`adr-std config agent`) e menu com memória | Concluída (bash e PowerShell; agentes: claude-code, codex, gemini-cli, opencode; abertura com agente real é verificação manual, ver `tests/cenarios.md`) | [2026-10-01-adr-std-v1-3-conversa-terminal](docs/specs/2026-10-01-adr-std-v1-3-conversa-terminal/) |
 
 A spec de uma versão só é aberta quando a versão começa, para não escrever requisitos que ainda podem mudar.
 
@@ -47,4 +47,4 @@ A spec de uma versão só é aberta quando a versão começa, para não escrever
 
 - **v1.1:** pasta global de prompts do Continue; como cada agente repassa os argumentos do comando; como medir nos
   testes que o agente respeita o limite de perguntas. (Decidido: `new` e `list` existem no agente já na v1.1.)
-- **v1.3:** como cada agente aceita um pedido inicial pela linha de comando (a forma varia); quais agentes entram no menu.
+- **v1.3 (resolvido em 2026-10-01):** forma de abrir confirmada com `--help` de `claude`, `codex`, `gemini` (`-i`) e `opencode` (`--prompt`); entram no menu só esses quatro. Os demais agentes seguem de fora até a forma ser confirmada (uma linha em `agent_launch.tsv`).

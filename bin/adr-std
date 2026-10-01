@@ -100,6 +100,37 @@ command_file_content() { # acao descricao extensao variavel-argumento
   esac
 }
 
+# Imprime as linhas de agent_launch.tsv: id<TAB>binario<TAB>flag-do-pedido
+launch_rows() {
+  [ -f "$SRC/agent_launch.tsv" ] || return 1
+  grep -v '^#' "$SRC/agent_launch.tsv" | grep .
+}
+
+launchable_ids() { launch_rows | cut -f1; }
+
+is_launchable() { launchable_ids | grep -qxF -- "$1"; }
+
+launch_field() { # id campo(2..3)
+  launch_rows | awk -F'\t' -v id="$1" -v f="$2" '$1 == id { print $f }'
+}
+
+# Agentes com a skill instalada (estado) que abrem pelo terminal.
+eligible_agents() {
+  local id
+  for id in $(state_agents | cut -f1); do is_launchable "$id" && echo "$id"; done
+  return 0
+}
+
+# Termo sem espaço, com 4+ letras, parecido com o nome de um agente → id (ou vazio).
+similar_agent() {
+  local term="$1" id
+  [ "${#term}" -ge 4 ] || return 0
+  case "$term" in *[[:space:]]*) return 0 ;; esac
+  for id in $(agent_ids); do
+    case "$id" in *"$term"*) echo "$id"; return ;; esac
+  done
+}
+
 suggest_agent() { # termo → id parecido (ou vazio)
   local term="$1" id
   for id in $(agent_ids); do
@@ -129,6 +160,12 @@ state_agents() { state_lines | awk -F'\t' '$1 == "agent" { print $2 "\t" $3 }'; 
 state_put() { # chave valor — substitui a linha da chave
   mkdir -p "$CONFIG_DIR"
   { state_lines | awk -F'\t' -v k="$1" '$1 != k'; printf '%s\t%s\n' "$1" "$2"; } > "$STATE_FILE.tmp"
+  mv "$STATE_FILE.tmp" "$STATE_FILE"
+}
+
+state_del() { # chave
+  [ -f "$STATE_FILE" ] || return 0
+  awk -F'\t' -v k="$1" '$1 != k' "$STATE_FILE" > "$STATE_FILE.tmp"
   mv "$STATE_FILE.tmp" "$STATE_FILE"
 }
 
@@ -436,6 +473,135 @@ cmd_mechanical() { # comando args...
   run_python_script adr_cli.py "$cmd" "$cmd" "$@"
 }
 
+# --- comandos de conversa (v1.3): abrem um agente com a skill ----------------------
+
+# Preenche CV_AGENT, CV_OPTS e CV_TEXT a partir dos argumentos. O primeiro termo só é
+# agente se for exatamente um nome da lista e vier seguido da descrição.
+parse_converse_args() { # acao args...
+  local action="$1"; shift
+  local -a words=()
+  CV_AGENT=""; CV_OPTS=(); CV_TEXT=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --agent)
+        [ $# -ge 2 ] || die 2 "--agent pede o nome do agente"
+        CV_AGENT="$2"; shift 2 ;;
+      --agent=*) CV_AGENT="${1#--agent=}"; shift ;;
+      --ask|-a)
+        case "$action" in create|supersede) ;; *) die 2 "$1 só vale em create e supersede" ;; esac
+        [[ "${2:-}" =~ ^[0-9]+$ ]] || die 2 "$1 pede um número de 1 a 10"
+        CV_OPTS+=(--ask "$2"); shift 2 ;;
+      --quick|-k)
+        case "$action" in create|supersede) ;; *) die 2 "$1 só vale em create e supersede" ;; esac
+        CV_OPTS+=(--quick); shift ;;
+      --) shift; words+=("$@"); break ;;
+      -*) die 2 "opção desconhecida: $1" ;;
+      *) words+=("$1"); shift ;;
+    esac
+  done
+  if [ ${#words[@]} -gt 1 ]; then
+    local first="${words[0]}" sim
+    if is_agent "$first"; then
+      [ -z "$CV_AGENT" ] || [ "$CV_AGENT" = "$first" ] || die 2 "agente indicado duas vezes: $CV_AGENT e $first"
+      CV_AGENT="$first"; words=("${words[@]:1}")
+    else
+      sim="$(similar_agent "$first")"
+      [ -z "$sim" ] || die 2 "\"$first\" parece um agente (quis dizer $sim?). Use --agent $sim ou coloque a descrição entre aspas"
+    fi
+  fi
+  CV_TEXT=("${words[@]+"${words[@]}"}")
+  if [ -n "$CV_AGENT" ] && ! is_launchable "$CV_AGENT"; then
+    local sim; sim="$(similar_agent "$CV_AGENT")"
+    if is_agent "$CV_AGENT"; then
+      die 2 "$CV_AGENT não abre pelo terminal com um pedido inicial. Agentes que abrem: $(launchable_ids | tr '\n' ' ')"
+    fi
+    [ -n "$sim" ] && die 2 "agente desconhecido: $CV_AGENT (quis dizer $sim?)"
+    die 2 "agente desconhecido: $CV_AGENT. Agentes que abrem: $(launchable_ids | tr '\n' ' ')"
+  fi
+  return 0
+}
+
+# Escolhe o agente (prioridade: indicado, padrão, menu); preenche CV_AGENT.
+pick_agent() {
+  [ -z "$CV_AGENT" ] || return 0
+  local def tty="${ADR_STD_TTY:-/dev/tty}" line last i pre=1
+  def="$(state_get default_agent)"
+  if [ -n "$def" ] && is_launchable "$def"; then
+    CV_AGENT="$def"
+    echo "adr-std: usando o agente padrão $def (mude com: adr-std config agent)"
+    return 0
+  fi
+  if ! { exec 3<"$tty"; } 2>/dev/null; then
+    die 3 "sem terminal interativo para escolher o agente. Indique com --agent (ex.: --agent claude-code) ou defina um padrão: adr-std config agent <nome>"
+  fi
+  local -a found
+  mapfile -t found < <(eligible_agents)
+  if [ ${#found[@]} -eq 0 ]; then
+    exec 3<&-
+    die 3 "nenhum agente com a skill instalada abre pelo terminal. Instale com: adr-std install <agente> (agentes: $(launchable_ids | tr '\n' ' '))"
+  fi
+  last="$(state_get last_agent)"
+  echo "Agentes com a skill instalada que abrem pelo terminal:"
+  for i in "${!found[@]}"; do
+    [ "${found[$i]}" = "$last" ] && pre=$((i + 1))
+    printf '  %d) %s%s\n' "$((i + 1))" "${found[$i]}" "$([ "${found[$i]}" = "$last" ] && echo '  (último usado)')"
+  done
+  printf 'Qual abrir? [%d]: ' "$pre"
+  IFS= read -r line <&3 || line=""
+  exec 3<&-
+  echo
+  [ -n "$line" ] || line="$pre"
+  if [[ "$line" =~ ^[0-9]+$ ]] && [ "$line" -ge 1 ] && [ "$line" -le ${#found[@]} ]; then
+    CV_AGENT="${found[$((line - 1))]}"
+  else
+    die 2 "escolha inválida: $line"
+  fi
+}
+
+# Abre o agente com o pedido inicial como UM argumento (sem eval nem shell: a descrição nunca vira comando).
+launch_agent() { # acao
+  local action="$1" id="$CV_AGENT" bin flag args request
+  bin="$(launch_field "$id" 2)"; flag="$(launch_field "$id" 3)"
+  command -v "$bin" >/dev/null 2>&1 || die 5 "o agente $id não está disponível: o programa '$bin' não foi encontrado no PATH"
+  state_agents | cut -f1 | grep -qxF -- "$id" || echo "  ! a skill adr-std não está registrada para $id; instale com: adr-std install $id"
+  args="${CV_OPTS[*]-} ${CV_TEXT[*]-}"
+  args="${args# }"; args="${args% }"
+  request="Use a skill adr-std, ação \"$action\", com estes argumentos: $args"
+  state_put last_agent "$id"
+  if [ "$flag" = "-" ]; then "$bin" "$request"; else "$bin" "$flag" "$request"; fi
+}
+
+cmd_converse() { # acao args...
+  local action="$1"; shift
+  parse_converse_args "$action" "$@"
+  if [ "$action" = "ask" ] && [ ${#CV_TEXT[@]} -eq 0 ]; then
+    die 2 "uso: adr-std ask [agente] <pergunta>"
+  fi
+  pick_agent
+  launch_agent "$action"
+}
+
+cmd_config() {
+  local sub="${1:-}"; [ $# -gt 0 ] && shift
+  [ "$sub" = "agent" ] || die 2 "uso: adr-std config agent [nome|--unset]"
+  local cur sim
+  case "${1:-}" in
+    "")
+      cur="$(state_get default_agent)"
+      if [ -n "$cur" ]; then echo "agente padrão: $cur"; else echo "nenhum agente padrão definido"; fi ;;
+    --unset) state_del default_agent; echo "agente padrão removido" ;;
+    -*) die 2 "opção desconhecida: $1" ;;
+    *)
+      if ! is_launchable "$1"; then
+        sim="$(similar_agent "$1")"
+        if is_agent "$1"; then die 2 "$1 não abre pelo terminal. Agentes que abrem: $(launchable_ids | tr '\n' ' ')"; fi
+        [ -n "$sim" ] && die 2 "agente desconhecido: $1 (quis dizer $sim?)"
+        die 2 "agente desconhecido: $1. Agentes que abrem: $(launchable_ids | tr '\n' ' ')"
+      fi
+      state_put default_agent "$1"; echo "agente padrão: $1" ;;
+  esac
+}
+
 # --- comandos ---------------------------------------------------------------
 
 cmd_version() { echo "adr-std $(version)"; }
@@ -464,6 +630,13 @@ Comandos:
   link <A> <tipo> <B>    Registra uma relação entre dois ADRs, nos dois lados (Python 3)
   organize --dry-run     Mostra o plano de renumeração, sem alterar nada (Python 3)
                          (new, list, link e organize aceitam --path PASTA e --name-pattern REGEX)
+  create [agente] <descrição>   Abre um agente para criar um ADR em conversa (aceita --ask N e --quick)
+  supersede [agente] <ADR>      Abre um agente para criar o ADR que substitui outro (aceita --ask N e --quick)
+  review [agente] <pasta>       Abre um agente para revisar ADRs
+  audit [agente]                Abre um agente para auditar a descrição de arquitetura
+  ask [agente] <pergunta>       Abre um agente para tirar dúvidas sobre a norma
+                         Escolha do agente: indicado no comando (nome ou --agent), padrão, ou menu com o último usado
+  config agent [nome]    Mostra, define ou remove (--unset) o agente padrão dos comandos acima
   version                Mostra a versão
   help                   Mostra esta ajuda
 
@@ -496,6 +669,8 @@ main() {
     status)               cmd_status ;;
     check)                cmd_check "$@" ;;
     new|list|link|organize) cmd_mechanical "$cmd" "$@" ;;
+    create|supersede|review|audit|ask) cmd_converse "$cmd" "$@" ;;
+    config)               cmd_config "$@" ;;
     self-uninstall)       cmd_self_uninstall "$@" ;;
     update)               cmd_update "$@" ;;
     *) err "comando desconhecido: $cmd"; echo; cmd_help; exit 2 ;;

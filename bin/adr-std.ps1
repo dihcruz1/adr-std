@@ -96,6 +96,35 @@ function Get-CommandFileContent([string]$Action, [string]$Description, [string]$
     }
 }
 
+# Linhas de agent_launch.tsv: id, binário e flag do pedido ("-" = argumento posicional).
+function Get-LaunchRow {
+    $f = Join-Path $Src 'agent_launch.tsv'
+    if (-not (Test-Path $f)) { return }
+    foreach ($l in Get-Content $f -Encoding UTF8) {
+        if ($l -and -not $l.StartsWith('#')) {
+            $c = $l -split "`t"
+            [pscustomobject]@{ Id = $c[0]; Bin = $c[1]; Flag = $c[2] }
+        }
+    }
+}
+function Get-Launch([string]$Id) { Get-LaunchRow | Where-Object { $_.Id -eq $Id } | Select-Object -First 1 }
+function Test-Launchable([string]$Id) { $null -ne (Get-Launch $Id) }
+function Get-LaunchableText { (Get-LaunchRow | ForEach-Object { $_.Id }) -join ' ' }
+
+# Agentes com a skill instalada (estado) que abrem pelo terminal.
+function Get-EligibleId { Get-StateAgent | ForEach-Object { $_.Id } | Where-Object { Test-Launchable $_ } }
+
+# Termo sem espaço, com 4+ letras, parecido com o nome de um agente → id (ou vazio).
+function Find-SimilarLaunchTerm([string]$Term) {
+    if ($Term.Length -lt 4 -or $Term -match '\s') { return '' }
+    foreach ($a in Get-AgentRow) { if ($a.Id.Contains($Term)) { return $a.Id } }
+    return ''
+}
+
+function Test-Interactive {
+    $null -ne $env:ADR_STD_ANSWER -or ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected)
+}
+
 function Find-SimilarAgent([string]$Term) {
     foreach ($a in Get-AgentRow) { if ($a.Id -like "*$Term*") { return $a.Id } }
     return ''
@@ -127,6 +156,10 @@ function Get-State([string]$Key) {
 function Set-State([string]$Key, [string]$Value) {
     $keep = @(Get-StateLine | Where-Object { ($_ -split "`t")[0] -ne $Key })
     Save-StateLine ($keep + "$Key`t$Value")
+}
+
+function Remove-State([string]$Key) {
+    Save-StateLine @(Get-StateLine | Where-Object { ($_ -split "`t")[0] -ne $Key })
 }
 
 function Get-StateAgent {
@@ -435,6 +468,128 @@ function Invoke-SelfUninstall([string[]]$Tokens) {
     Write-Host 'adr-std removido deste computador.'
 }
 
+# --- comandos de conversa (v1.3): abrem um agente com a skill ------------------------
+
+function Stop-UnknownLaunchAgent([string]$Name) {
+    if (Test-Agent $Name) { Stop-AdrStd 2 "$Name não abre pelo terminal com um pedido inicial. Agentes que abrem: $(Get-LaunchableText)" }
+    $sim = Find-SimilarLaunchTerm $Name
+    if ($sim) { Stop-AdrStd 2 "agente desconhecido: $Name (quis dizer ${sim}?)" }
+    Stop-AdrStd 2 "agente desconhecido: $Name. Agentes que abrem: $(Get-LaunchableText)"
+}
+
+# Devolve Agent, Opts e Text. O primeiro termo só é agente se for exatamente um nome da lista e vier seguido da descrição.
+function Read-ConverseArg([string]$Action, [string[]]$Tokens) {
+    $agent = ''; $opts = @(); $words = @()
+    $takesOpts = $Action -in 'create', 'supersede'
+    for ($i = 0; $i -lt $Tokens.Count; $i++) {
+        $t = $Tokens[$i]
+        if ($t -eq '--agent') {
+            if ($i + 1 -ge $Tokens.Count) { Stop-AdrStd 2 '--agent pede o nome do agente' }
+            $agent = $Tokens[++$i]
+        } elseif ($t.StartsWith('--agent=')) {
+            $agent = $t.Substring(8)
+        } elseif ($t -in '--ask', '-a') {
+            if (-not $takesOpts) { Stop-AdrStd 2 "$t só vale em create e supersede" }
+            if ($i + 1 -ge $Tokens.Count -or $Tokens[$i + 1] -notmatch '^\d+$') { Stop-AdrStd 2 "$t pede um número de 1 a 10" }
+            $opts += '--ask'; $opts += $Tokens[++$i]
+        } elseif ($t -in '--quick', '-k') {
+            if (-not $takesOpts) { Stop-AdrStd 2 "$t só vale em create e supersede" }
+            $opts += '--quick'
+        } elseif ($t -eq '--') {
+            if ($i + 1 -lt $Tokens.Count) { $words += $Tokens[($i + 1)..($Tokens.Count - 1)] }
+            break
+        } elseif ($t.StartsWith('-')) {
+            Stop-AdrStd 2 "opção desconhecida: $t"
+        } else {
+            $words += $t
+        }
+    }
+    if ($words.Count -gt 1) {
+        $first = $words[0]
+        if (Test-Agent $first) {
+            if ($agent -and $agent -ne $first) { Stop-AdrStd 2 "agente indicado duas vezes: $agent e $first" }
+            $agent = $first; $words = @($words[1..($words.Count - 1)])
+        } else {
+            $sim = Find-SimilarLaunchTerm $first
+            if ($sim) { Stop-AdrStd 2 "`"$first`" parece um agente (quis dizer ${sim}?). Use --agent $sim ou coloque a descrição entre aspas" }
+        }
+    }
+    if ($agent -and -not (Test-Launchable $agent)) { Stop-UnknownLaunchAgent $agent }
+    [pscustomobject]@{ Agent = $agent; Opts = $opts; Text = $words }
+}
+
+# Escolhe o agente: indicado, padrão ou menu (com o último usado pré-selecionado).
+function Select-LaunchAgent([string]$Agent) {
+    if ($Agent) { return $Agent }
+    $def = Get-State 'default_agent'
+    if ($def -and (Test-Launchable $def)) {
+        Write-Host "adr-std: usando o agente padrão $def (mude com: adr-std config agent)"
+        return $def
+    }
+    if (-not (Test-Interactive)) {
+        Stop-AdrStd 3 'sem terminal interativo para escolher o agente. Indique com --agent (ex.: --agent claude-code) ou defina um padrão: adr-std config agent <nome>'
+    }
+    $found = @(Get-EligibleId)
+    if ($found.Count -eq 0) {
+        Stop-AdrStd 3 "nenhum agente com a skill instalada abre pelo terminal. Instale com: adr-std install <agente> (agentes: $(Get-LaunchableText))"
+    }
+    $last = Get-State 'last_agent'
+    $pre = 1
+    Write-Host 'Agentes com a skill instalada que abrem pelo terminal:'
+    for ($n = 0; $n -lt $found.Count; $n++) {
+        $mark = ''
+        if ($found[$n] -eq $last) { $pre = $n + 1; $mark = '  (último usado)' }
+        Write-Host ("  {0}) {1}{2}" -f ($n + 1), $found[$n], $mark)
+    }
+    $line = Read-Answer ("Qual abrir? [{0}]: " -f $pre)
+    $line = if ($line) { $line.Trim() } else { '' }
+    if (-not $line) { $line = [string]$pre }
+    if ($line -match '^\d+$' -and [int]$line -ge 1 -and [int]$line -le $found.Count) { return $found[[int]$line - 1] }
+    Stop-AdrStd 2 "escolha inválida: $line"
+}
+
+# Abre o agente com o pedido inicial como UM argumento (sem Invoke-Expression: a descrição nunca vira comando).
+function Start-LaunchAgent([string]$Id, [string]$Action, $Parsed) {
+    $row = Get-Launch $Id
+    $cmd = Get-Command $row.Bin -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $cmd) { Stop-AdrStd 5 "o agente $Id não está disponível: o programa '$($row.Bin)' não foi encontrado no PATH" }
+    if (-not ((Get-StateAgent | ForEach-Object { $_.Id }) -contains $Id)) {
+        Write-Host "  ! a skill adr-std não está registrada para $Id; instale com: adr-std install $Id"
+    }
+    $args1 = (@($Parsed.Opts) + @($Parsed.Text)) -join ' '
+    $request = "Use a skill adr-std, ação `"$Action`", com estes argumentos: $args1".TrimEnd()
+    # Windows PowerShell 5.1 e PowerShell < 7.3 repassam aspas internas sem escape ao programa nativo.
+    $sent = if ($PSVersionTable.PSVersion -lt [version]'7.3') { $request -replace '"', '\"' } else { $request }
+    Set-State 'last_agent' $Id
+    if ($row.Flag -eq '-') { & $cmd.Source $sent } else { & $cmd.Source $row.Flag $sent }
+    exit $LASTEXITCODE
+}
+
+function Invoke-Converse([string]$Action, [string[]]$Tokens) {
+    $parsed = Read-ConverseArg $Action $Tokens
+    if ($Action -eq 'ask' -and @($parsed.Text).Count -eq 0) { Stop-AdrStd 2 'uso: adr-std ask [agente] <pergunta>' }
+    $id = Select-LaunchAgent $parsed.Agent
+    Start-LaunchAgent $id $Action $parsed
+}
+
+function Invoke-Config([string[]]$Tokens) {
+    if ($Tokens.Count -eq 0 -or $Tokens[0] -ne 'agent') { Stop-AdrStd 2 'uso: adr-std config agent [nome|--unset]' }
+    $arg = if ($Tokens.Count -gt 1) { $Tokens[1] } else { '' }
+    if (-not $arg) {
+        $cur = Get-State 'default_agent'
+        if ($cur) { Write-Host "agente padrão: $cur" } else { Write-Host 'nenhum agente padrão definido' }
+    } elseif ($arg -eq '--unset') {
+        Remove-State 'default_agent'
+        Write-Host 'agente padrão removido'
+    } elseif ($arg.StartsWith('-')) {
+        Stop-AdrStd 2 "opção desconhecida: $arg"
+    } else {
+        if (-not (Test-Launchable $arg)) { Stop-UnknownLaunchAgent $arg }
+        Set-State 'default_agent' $arg
+        Write-Host "agente padrão: $arg"
+    }
+}
+
 function Show-Help {
     $ids = (Get-AgentRow | ForEach-Object { $_.Id }) -join ' '
     @"
@@ -460,6 +615,13 @@ Comandos:
   link <A> <tipo> <B>    Registra uma relação entre dois ADRs, nos dois lados (Python 3)
   organize --dry-run     Mostra o plano de renumeração, sem alterar nada (Python 3)
                          (new, list, link e organize aceitam --path PASTA e --name-pattern REGEX)
+  create [agente] <descrição>   Abre um agente para criar um ADR em conversa (aceita --ask N e --quick)
+  supersede [agente] <ADR>      Abre um agente para criar o ADR que substitui outro (aceita --ask N e --quick)
+  review [agente] <pasta>       Abre um agente para revisar ADRs
+  audit [agente]                Abre um agente para auditar a descrição de arquitetura
+  ask [agente] <pergunta>       Abre um agente para tirar dúvidas sobre a norma
+                         Escolha do agente: indicado no comando (nome ou --agent), padrão, ou menu com o último usado
+  config agent [nome]    Mostra, define ou remove (--unset) o agente padrão dos comandos acima
   version                Mostra a versão
   help                   Mostra esta ajuda
 
@@ -481,6 +643,8 @@ switch ($cmd) {
     'status'         { Invoke-Status }
     'check'          { Invoke-Check $rest }
     { $_ -in 'new', 'list', 'link', 'organize' } { Invoke-Mechanical $cmd $rest }
+    { $_ -in 'create', 'supersede', 'review', 'audit', 'ask' } { Invoke-Converse $cmd $rest }
+    'config'         { Invoke-Config $rest }
     'update'         { Invoke-Update $rest }
     'self-uninstall' { Invoke-SelfUninstall $rest }
     default {
