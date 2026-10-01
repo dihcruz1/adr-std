@@ -28,7 +28,7 @@ Regra: tudo o que o agente lê fica em `skill/`. O que é de distribuição ou d
 ## Rodar os testes
 
 ```bash
-python3 -m unittest discover -s tests -p 'test_check_adr.py' -v   # script de verificação
+python3 -m unittest discover -s tests -p 'test_*.py' -v   # scripts Python (check_adr, check_roadmap, adr_cli)
 bash tests/test_cli.sh                                             # comando e instalador (bash)
 bash tests/test_cli.sh install_menu update                         # só alguns testes
 ```
