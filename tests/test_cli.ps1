@@ -260,6 +260,34 @@ Describe 'config agent (v1.3)' {
     }
 }
 
+Describe 'config path (v1.4)' {
+    It 'mostra, define e remove a pasta de ADRs na config global' {
+        $config = Join-Path $Tmp 'roam/adr-std/config'
+        (Invoke-Cli @('config', 'path')).Output | Should -Match 'nenhuma pasta de ADRs'
+        (Invoke-Cli @('config', 'path', 'docs/decisoes')).Code | Should -Be 0
+        (Invoke-Cli @('config', 'path')).Output | Should -Match 'docs/decisoes'
+        (@(Get-Content $config) -match '^path\s*[:=]').Count | Should -Be 1
+        # gravar de novo não duplica
+        (Invoke-Cli @('config', 'path', 'docs/decisoes')).Code | Should -Be 0
+        (@(Get-Content $config) -match '^path\s*[:=]').Count | Should -Be 1
+        # config path (config) e config agent (state) não interferem
+        (Invoke-Cli @('config', 'agent', 'codex')).Code | Should -Be 0
+        (Invoke-Cli @('config', 'path', 'docs/decisoes')).Code | Should -Be 0
+        (Get-Content $State | Where-Object { $_ -match '^default_agent' }) | Should -Match "`tcodex$"
+        (Invoke-Cli @('config', 'path')).Output | Should -Match 'docs/decisoes'
+        # remover
+        (Invoke-Cli @('config', 'path', '--unset')).Code | Should -Be 0
+        (Invoke-Cli @('config', 'path')).Output | Should -Match 'nenhuma pasta de ADRs'
+        (Invoke-Cli @('config', 'path', '--unset')).Code | Should -Be 0
+        # opção desconhecida e subcomando inválido
+        (Invoke-Cli @('config', 'path', '-x')).Code | Should -Be 2
+        $r = Invoke-Cli @('config', 'caminho')
+        $r.Code | Should -Be 2
+        $r.Output | Should -Match 'agent'
+        $r.Output | Should -Match 'path'
+    }
+}
+
 Describe 'comandos de conversa (v1.3)' {
     BeforeEach {
         $script:Fake = Join-Path $Tmp 'fakebin'

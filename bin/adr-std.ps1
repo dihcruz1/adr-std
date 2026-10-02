@@ -14,6 +14,9 @@ $DataDir   = Join-Path $LocalApp 'adr-std'
 $BinDir    = Join-Path $DataDir 'bin'
 $ConfigDir = Join-Path $RoamApp 'adr-std'
 $StateFile = Join-Path $ConfigDir 'state'
+# Config global do ADR-0001 (nível 4): a mesma que adr_cli.py (read_path_field) lê. Arquivo separado
+# do estado da skill; só o campo `path` vive aqui, no formato `path: <valor>`.
+$ConfigFile = Join-Path $ConfigDir 'config'
 $SharedDir = '.agents/skills'
 $SkillName = 'adr-std'
 $Marker    = '.installed-by-adr-std'
@@ -572,9 +575,41 @@ function Invoke-Converse([string]$Action, [string[]]$Tokens) {
     Start-LaunchAgent $id $Action $parsed
 }
 
+# Campo `path` da config global (ADR-0001, nível 4). Grava em $ConfigFile no formato `path: <valor>`,
+# que read_path_field (adr_cli.py) lê. Preserva as demais linhas do arquivo, se houver.
+function Get-ConfigLine { if (Test-Path $ConfigFile) { @(Get-Content $ConfigFile -Encoding UTF8) } else { @() } }
+
+function Get-ConfigPath {
+    foreach ($l in Get-ConfigLine) {
+        if ($l -match '^path\s*[:=]\s*(.+?)\s*$') { return $Matches[1] }
+    }
+    return ''
+}
+
+function Set-ConfigPath([string]$Value) {
+    New-Item -ItemType Directory -Force -Path $ConfigDir | Out-Null
+    $keep = @(Get-ConfigLine | Where-Object { $_ -notmatch '^path\s*[:=]' })
+    [IO.File]::WriteAllLines($ConfigFile, [string[]]($keep + "path: $Value"), (New-Object Text.UTF8Encoding($false)))
+}
+
+function Remove-ConfigPath {
+    if (-not (Test-Path $ConfigFile)) { return }
+    $keep = @(Get-ConfigLine | Where-Object { $_ -notmatch '^path\s*[:=]' })
+    [IO.File]::WriteAllLines($ConfigFile, [string[]]$keep, (New-Object Text.UTF8Encoding($false)))
+}
+
 function Invoke-Config([string[]]$Tokens) {
-    if ($Tokens.Count -eq 0 -or $Tokens[0] -ne 'agent') { Stop-AdrStd 2 'uso: adr-std config agent [nome|--unset]' }
-    $arg = if ($Tokens.Count -gt 1) { $Tokens[1] } else { '' }
+    $sub = if ($Tokens.Count -gt 0) { $Tokens[0] } else { '' }
+    $rest = if ($Tokens.Count -gt 1) { $Tokens[1..($Tokens.Count - 1)] } else { @() }
+    switch ($sub) {
+        'agent' { Invoke-ConfigAgent $rest }
+        'path'  { Invoke-ConfigPath $rest }
+        default { Stop-AdrStd 2 'uso: adr-std config <agent|path> ...' }
+    }
+}
+
+function Invoke-ConfigAgent([string[]]$Tokens) {
+    $arg = if ($Tokens.Count -gt 0) { $Tokens[0] } else { '' }
     if (-not $arg) {
         $cur = Get-State 'default_agent'
         if ($cur) { Write-Host "agente padrão: $cur" } else { Write-Host 'nenhum agente padrão definido' }
@@ -587,6 +622,21 @@ function Invoke-Config([string[]]$Tokens) {
         if (-not (Test-Launchable $arg)) { Stop-UnknownLaunchAgent $arg }
         Set-State 'default_agent' $arg
         Write-Host "agente padrão: $arg"
+    }
+}
+
+function Invoke-ConfigPath([string[]]$Tokens) {
+    $arg = if ($Tokens.Count -gt 0) { $Tokens[0] } else { '' }
+    if (-not $arg) {
+        $cur = Get-ConfigPath
+        if ($cur) { Write-Host "pasta de ADRs: $cur" } else { Write-Host 'nenhuma pasta de ADRs definida (usando o padrão docs/architecture/ADR)' }
+    } elseif ($arg -eq '--unset') {
+        if (Get-ConfigPath) { Remove-ConfigPath; Write-Host 'pasta de ADRs removida' } else { Write-Host 'nenhuma pasta de ADRs definida' }
+    } elseif ($arg.StartsWith('-')) {
+        Stop-AdrStd 2 "opção desconhecida: $arg"
+    } else {
+        Set-ConfigPath $arg
+        Write-Host "pasta de ADRs: $arg"
     }
 }
 
@@ -622,6 +672,7 @@ Comandos:
   ask [agente] <pergunta>       Abre um agente para tirar dúvidas sobre a norma
                          Escolha do agente: indicado no comando (nome ou --agent), padrão, ou menu com o último usado
   config agent [nome]    Mostra, define ou remove (--unset) o agente padrão dos comandos acima
+  config path [pasta]    Mostra, define ou remove (--unset) a pasta de ADRs na config global
   version                Mostra a versão
   help                   Mostra esta ajuda
 
