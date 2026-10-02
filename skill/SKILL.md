@@ -27,6 +27,7 @@ Resolva o caminho onde os ADRs são lidos e gravados nesta ordem (pare na primei
 2. Campo `path` no arquivo `.adr-std` na raiz do repositório.
 3. Convenção declarada em `docs/architecture/ADR/CONVENTIONS.md` ou em `AGENTS.md`.
 4. Campo `path` em `~/.config/adr-std/config` (Linux/macOS) ou `%APPDATA%\adr-std\config` (Windows).
+   O usuário pode gravar esse nível pela CLI com `adr-std config path <pasta>` (mostra sem argumento, `--unset` remove).
 5. **Padrão:** `docs/architecture/ADR/`
 
 ### ROADMAP.md (atualização automática)

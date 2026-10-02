@@ -28,8 +28,9 @@ As etapas abaixo rastreiam a relação entre as versões e as decisões arquitet
 |:---:|---|:---:|---|:---:|
 | **v1.0** | Skill, instalação, CLI (`install`, `update`, `uninstall`, `status`, `agents`, `check`) | — | [2026-09-30-adr-std-v1-0](../../specs/2026-09-30-adr-std-v1-0/) | Em execução |
 | **v1.1** | Comandos por ação dentro do agente (`/adr-std-create`, `-new`, `-list` etc.) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-09-30-adr-std-v1-1-comandos-no-agente](../../specs/2026-09-30-adr-std-v1-1-comandos-no-agente/) | Concluída |
-| **v1.2** | Comandos mecânicos no terminal em Python (`new`, `list`, `link`, `organize --dry-run`; `config path` do ADR-0001 segue pendente) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-01-adr-std-v1-2-comandos-terminal](../../specs/2026-10-01-adr-std-v1-2-comandos-terminal/) | Concluída |
+| **v1.2** | Comandos mecânicos no terminal em Python (`new`, `list`, `link`, `organize --dry-run`; leitura da config global do ADR-0001) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-01-adr-std-v1-2-comandos-terminal](../../specs/2026-10-01-adr-std-v1-2-comandos-terminal/) | Concluída |
 | **v1.3** | Comandos de conversa no terminal; agente padrão e menu com memória | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-01-adr-std-v1-3-conversa-terminal](../../specs/2026-10-01-adr-std-v1-3-conversa-terminal/) | Concluída |
+| **v1.4** | `adr-std config path`: escrita da config global pela CLI (nível 4 do ADR-0001, etapa 2) | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-02-adr-std-v1-4-config-path](../../specs/2026-10-02-adr-std-v1-4-config-path/) | Concluída |
 
 ---
 
