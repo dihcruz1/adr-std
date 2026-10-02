@@ -5,6 +5,16 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [1.4.0] - 2026-10-02
+
+### Adicionado
+- `adr-std config path [pasta]`: mostra, define (`<pasta>`) ou remove (`--unset`) a pasta de ADRs na
+  config global (`~/.config/adr-std/config` ou `%APPDATA%\adr-std\config`), o nível 4 da hierarquia do
+  ADR-0001. Fecha a etapa 2 do ADR-0001 (o campo já era lido por `new`, `list`, `link` e `organize`
+  desde a v1.2; agora também se grava pela CLI, sem editar o arquivo à mão).
+- `adr-std config` agora aceita dois subcomandos (`agent` e `path`); a mensagem de uso lista os dois.
+- Paridade no PowerShell (`bin/adr-std.ps1`).
+
 ## [1.3.0] - 2026-10-01
 
 ### Adicionado

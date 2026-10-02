@@ -266,9 +266,11 @@ adr-std install --all                    # todos os encontrados
 
 | `adr-std create\|supersede\|review\|audit\|ask [agente] [descrição]` | Abre um agente com a skill e o pedido inicial. `create` e `supersede` aceitam `--ask N` e `--quick` |
 | `adr-std config agent [nome]` | Mostra o agente padrão dos comandos acima; com `nome` define; `--unset` remove |
+| `adr-std config path [pasta]` | Mostra a pasta de ADRs da config global; com `pasta` define; `--unset` remove |
 
 `new`, `list`, `link` e `organize` aceitam `--path PASTA` e `--name-pattern REGEX`. Sem `--path`, a pasta vem de
-`.adr-std` (campo `path`), depois de `~/.config/adr-std/config` e, por fim, `docs/architecture/ADR`.
+`.adr-std` (campo `path`), depois da config global e, por fim, `docs/architecture/ADR`. A config global
+(`~/.config/adr-std/config` ou `%APPDATA%\adr-std\config`) é editável pela CLI com `adr-std config path`.
 | `adr-std version` · `adr-std help` | Versão e ajuda |
 
 Regras de segurança do comando:
@@ -341,16 +343,17 @@ apaga a pasta `adr-std` do agente e copia a nova.
 
 ## 13. Limitações e próximas versões
 
-**Versão 1.3 (esta):** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
+**Versão 1.4 (esta):** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
 `adr-std` (`install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`, `new`, `list`, `link`,
-`organize --dry-run`, `create`, `supersede`, `review`, `audit`, `ask`, `config agent`).
+`organize --dry-run`, `create`, `supersede`, `review`, `audit`, `ask`, `config agent`, `config path`).
 
 **Planejado** (detalhes e decisões em [`ROADMAP.md`](ROADMAP.md)):
 
 | Versão | Conteúdo |
 |---|---|
 | 1.1 | Comandos por ação dentro do agente: `/adr-std-create` (com `--ask N` e `--quick`), `/adr-std-supersede`, `/adr-std-review`, `/adr-std-organize`, `/adr-std-link`, `/adr-std-audit`, `/adr-std-check`, `/adr-std-ask` |
-| Futuro | `organize` real (renomeia arquivos), `adr-std config path`, mais agentes no menu (a forma de abrir pelo terminal precisa ser confirmada em cada um) |
+| 1.4 | `adr-std config path` para gravar a pasta de ADRs na config global pela CLI (nível 4 do ADR-0001) |
+| Futuro | `organize` real (renomeia arquivos), mais agentes no menu (a forma de abrir pelo terminal precisa ser confirmada em cada um) |
 
 **Limitações conhecidas:**
 
