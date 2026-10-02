@@ -3,9 +3,9 @@
 | Campo | Valor |
 |---|---|
 | **ID** | ADR-0001 |
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
-| **Aprovado em** | pendente |
+| **Aprovado em** | 2026-10-01 |
 | **Modificado em** | — |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
@@ -96,6 +96,7 @@ Nenhuma opção de personalização de escopo de workspace (por exemplo, variáv
 | Data | Alteração | Autor |
 |---|---|---|
 | 2026-10-01 | Criação | Diego |
+| 2026-10-01 | Aprovação (Status: Aceito) | Diego |
 
 ## Referências
 

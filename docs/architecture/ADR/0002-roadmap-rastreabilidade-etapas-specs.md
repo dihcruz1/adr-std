@@ -3,9 +3,9 @@
 | Campo | Valor |
 |---|---|
 | **ID** | ADR-0002 |
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
-| **Aprovado em** | pendente |
+| **Aprovado em** | 2026-10-01 |
 | **Modificado em** | — |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
@@ -101,6 +101,7 @@ Não foi avaliada geração automática do ROADMAP por script (ex.: a partir dos
 | Data | Alteração | Autor |
 |---|---|---|
 | 2026-10-01 | Criação | Diego |
+| 2026-10-01 | Aprovação (Status: Aceito) | Diego |
 
 ## Referências
 
