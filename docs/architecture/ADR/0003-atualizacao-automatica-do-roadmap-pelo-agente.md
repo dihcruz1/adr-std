@@ -3,9 +3,9 @@
 | Campo | Valor |
 |---|---|
 | **ID** | ADR-0003 |
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
-| **Aprovado em** | pendente |
+| **Aprovado em** | 2026-10-01 |
 | **Modificado em** | — |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
@@ -113,6 +113,7 @@ A inferência de status a partir da existência de arquivos (`requirements.md`, 
 | Data | Alteração | Autor |
 |---|---|---|
 | 2026-10-01 | Criação | Diego |
+| 2026-10-01 | Aprovação (Status: Aceito) | Diego |
 
 ## Referências
 
