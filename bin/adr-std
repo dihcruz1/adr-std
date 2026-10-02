@@ -10,6 +10,9 @@ self_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/adr-std"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/adr-std"
 STATE_FILE="$CONFIG_DIR/state"
+# Config global do ADR-0001 (nível 4): a mesma que adr_cli.py (read_path_field) lê. É um arquivo
+# separado do estado da skill — só o campo `path` vive aqui, no formato `path: <valor>`.
+CONFIG_FILE="$CONFIG_DIR/config"
 BIN_DIR="$HOME/.local/bin"
 SHARED_DIR=".agents/skills"
 SKILL_NAME="adr-std"
@@ -581,9 +584,36 @@ cmd_converse() { # acao args...
   launch_agent "$action"
 }
 
+# Campo `path` da config global (ADR-0001, nível 4). Grava em $CONFIG_FILE no formato `path: <valor>`,
+# que read_path_field (adr_cli.py) lê. Preserva as demais linhas do arquivo, se houver.
+config_lines() { [ -f "$CONFIG_FILE" ] && cat "$CONFIG_FILE"; return 0; }
+
+config_path_get() {
+  config_lines | sed -n 's/^path[[:space:]]*[:=][[:space:]]*\(.*[^[:space:]]\)[[:space:]]*$/\1/p' | head -n1
+}
+
+config_path_set() { # valor
+  mkdir -p "$CONFIG_DIR"
+  { config_lines | grep -vE '^path[[:space:]]*[:=]'; printf 'path: %s\n' "$1"; } > "$CONFIG_FILE.tmp"
+  mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+}
+
+config_path_unset() {
+  [ -f "$CONFIG_FILE" ] || return 0
+  grep -vE '^path[[:space:]]*[:=]' "$CONFIG_FILE" > "$CONFIG_FILE.tmp" || true
+  mv "$CONFIG_FILE.tmp" "$CONFIG_FILE"
+}
+
 cmd_config() {
   local sub="${1:-}"; [ $# -gt 0 ] && shift
-  [ "$sub" = "agent" ] || die 2 "uso: adr-std config agent [nome|--unset]"
+  case "$sub" in
+    agent) cmd_config_agent "$@" ;;
+    path)  cmd_config_path "$@" ;;
+    *)     die 2 "uso: adr-std config <agent|path> ..." ;;
+  esac
+}
+
+cmd_config_agent() {
   local cur sim
   case "${1:-}" in
     "")
@@ -599,6 +629,19 @@ cmd_config() {
         die 2 "agente desconhecido: $1. Agentes que abrem: $(launchable_ids | tr '\n' ' ')"
       fi
       state_put default_agent "$1"; echo "agente padrão: $1" ;;
+  esac
+}
+
+cmd_config_path() {
+  local cur
+  case "${1:-}" in
+    "")
+      cur="$(config_path_get)"
+      if [ -n "$cur" ]; then echo "pasta de ADRs: $cur"; else echo "nenhuma pasta de ADRs definida (usando o padrão docs/architecture/ADR)"; fi ;;
+    --unset)
+      if [ -n "$(config_path_get)" ]; then config_path_unset; echo "pasta de ADRs removida"; else echo "nenhuma pasta de ADRs definida"; fi ;;
+    -*) die 2 "opção desconhecida: $1" ;;
+    *) config_path_set "$1"; echo "pasta de ADRs: $1" ;;
   esac
 }
 
@@ -637,6 +680,7 @@ Comandos:
   ask [agente] <pergunta>       Abre um agente para tirar dúvidas sobre a norma
                          Escolha do agente: indicado no comando (nome ou --agent), padrão, ou menu com o último usado
   config agent [nome]    Mostra, define ou remove (--unset) o agente padrão dos comandos acima
+  config path [pasta]    Mostra, define ou remove (--unset) a pasta de ADRs na config global
   version                Mostra a versão
   help                   Mostra esta ajuda
 

@@ -76,6 +76,7 @@ test_agents() {
 }
 
 state_file() { echo "$HOME/.config/adr-std/state"; }
+config_file() { echo "$HOME/.config/adr-std/config"; }
 
 test_install_explicit() {
   mkdir -p "$HOME/.claude" "$HOME/.codex"
@@ -565,7 +566,43 @@ test_config_agent() {
   out="$("$CLI" config agent claud 2>&1)"; code=$?
   assert_eq "$code" "2" "nome inválido" || return 1
   out="$("$CLI" config 2>&1)"; code=$?
-  assert_eq "$code" "2" "config sem subcomando"
+  assert_eq "$code" "2" "config sem subcomando" || return 1
+  out="$("$CLI" config caminho 2>&1)"; code=$?
+  assert_eq "$code" "2" "subcomando inválido de config" || return 1
+  assert_contains "$out" "agent" || return 1
+  assert_contains "$out" "path"
+}
+
+test_config_path() {
+  local out code
+  out="$("$CLI" config path)" || return 1
+  assert_contains "$out" "nenhuma pasta de ADRs" || return 1
+  "$CLI" config path docs/decisoes >/dev/null || fail "definir falhou" || return 1
+  out="$("$CLI" config path)"; assert_contains "$out" "docs/decisoes" || return 1
+  assert_eq "$(grep -cE '^path[[:space:]]*[:=]' "$(config_file)")" "1" "uma única linha path" || return 1
+  # gravar de novo não duplica a linha path
+  "$CLI" config path docs/decisoes >/dev/null || return 1
+  assert_eq "$(grep -cE '^path[[:space:]]*[:=]' "$(config_file)")" "1" "ainda uma única linha path" || return 1
+  # config path (arquivo config) e config agent (arquivo state) não interferem um no outro
+  "$CLI" config agent codex >/dev/null || return 1
+  "$CLI" config path docs/decisoes >/dev/null || return 1
+  assert_eq "$(grep -P '^default_agent\t' "$(state_file)" | cut -f2)" "codex" "default_agent preservado" || return 1
+  assert_eq "$("$CLI" config path)" "pasta de ADRs: docs/decisoes" "path preservado após config agent" || return 1
+  # remover
+  "$CLI" config path --unset >/dev/null || return 1
+  out="$("$CLI" config path)"; assert_contains "$out" "nenhuma pasta de ADRs" || return 1
+  "$CLI" config path --unset >/dev/null || fail "--unset repetido não deve falhar" || return 1
+  # opção desconhecida
+  out="$("$CLI" config path -x 2>&1)"; code=$?
+  assert_eq "$code" "2" "opção desconhecida" || return 1
+  # ida-e-volta: o path gravado pelo CLI é lido por list (resolve_folder)
+  command -v python3 >/dev/null || return 0  # sem Python, só a parte mecânica acima
+  mkdir -p outra-pasta
+  printf '# ADR-0001: teste\n\n| **ID** | ADR-0001 |\n| **Status** | Proposto |\n| **Data da decisão** | 2026-10-02 |\n' > outra-pasta/0001-teste.md
+  "$CLI" config path outra-pasta >/dev/null || return 1
+  out="$("$CLI" list)" || fail "list falhou" || return 1
+  assert_contains "$out" "ADR-0001" || return 1
+  assert_contains "$out" "teste"
 }
 
 test_converse_explicit_agent() {
