@@ -14,7 +14,7 @@ $DataDir   = Join-Path $LocalApp 'adr-std'
 $BinDir    = Join-Path $DataDir 'bin'
 $ConfigDir = Join-Path $RoamApp 'adr-std'
 $StateFile = Join-Path $ConfigDir 'state'
-# Config global do ADR-0001 (nível 4): a mesma que adr_cli.py (read_path_field) lê. Arquivo separado
+# Config global do ADR-1 (nível 4): a mesma que adr_cli.py (read_path_field) lê. Arquivo separado
 # do estado da skill; só o campo `path` vive aqui, no formato `path: <valor>`.
 $ConfigFile = Join-Path $ConfigDir 'config'
 $SharedDir = '.agents/skills'
@@ -643,7 +643,7 @@ function Invoke-Converse([string]$Action, [string[]]$Tokens) {
     Start-LaunchAgent $id $Action $parsed
 }
 
-# Campo `path` da config global (ADR-0001, nível 4). Grava em $ConfigFile no formato `path: <valor>`,
+# Campo `path` da config global (ADR-1, nível 4). Grava em $ConfigFile no formato `path: <valor>`,
 # que read_path_field (adr_cli.py) lê. Preserva as demais linhas do arquivo, se houver.
 function Get-ConfigLine { if (Test-Path $ConfigFile) { @(Get-Content $ConfigFile -Encoding UTF8) } else { @() } }
 

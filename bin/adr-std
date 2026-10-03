@@ -10,7 +10,7 @@ self_dir="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}" 2>/dev/null || echo
 DATA_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/adr-std"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/adr-std"
 STATE_FILE="$CONFIG_DIR/state"
-# Config global do ADR-0001 (nível 4): a mesma que adr_cli.py (read_path_field) lê. É um arquivo
+# Config global do ADR-1 (nível 4): a mesma que adr_cli.py (read_path_field) lê. É um arquivo
 # separado do estado da skill — só o campo `path` vive aqui, no formato `path: <valor>`.
 CONFIG_FILE="$CONFIG_DIR/config"
 BIN_DIR="$HOME/.local/bin"
@@ -642,7 +642,7 @@ cmd_converse() { # acao args...
   launch_agent "$action"
 }
 
-# Campo `path` da config global (ADR-0001, nível 4). Grava em $CONFIG_FILE no formato `path: <valor>`,
+# Campo `path` da config global (ADR-1, nível 4). Grava em $CONFIG_FILE no formato `path: <valor>`,
 # que read_path_field (adr_cli.py) lê. Preserva as demais linhas do arquivo, se houver.
 config_lines() { [ -f "$CONFIG_FILE" ] && cat "$CONFIG_FILE"; return 0; }
 

@@ -127,7 +127,7 @@ Cenário: modo rápido sem descrição
   Então o agente avisa e não cria arquivo
 
 Cenário: substituição
-  Quando o usuário chama "/adr-std-supersede ADR-0003"
+  Quando o usuário chama "/adr-std-supersede ADR-3"
   Então o ADR antigo passa a "Substituído por ADR-NNNN" e nenhum ADR é apagado
 
 Cenário: esqueleto sem perguntas

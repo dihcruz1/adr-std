@@ -1,4 +1,4 @@
-# Tarefas — Atualização automática e silenciosa do ROADMAP (ADR-0003)
+# Tarefas — Atualização automática e silenciosa do ROADMAP (ADR-3)
 
 | Campo | Detalhe |
 |---|---|
@@ -23,7 +23,7 @@
 ## 2. Heurística de Status no script
 
 - [x] 2.1 — Acrescentar a RF-04 (comparação de Status esperado x registrado) a
-  `skill/scripts/check_roadmap.py`, criado na tarefa 1.1 da spec do ADR-0002; depende dela.
+  `skill/scripts/check_roadmap.py`, criado na tarefa 1.1 da spec do ADR-2; depende dela.
   - **RED:** casos em `tests/test_check_roadmap.py`: Spec com só `requirements.md` e Status
     "Só requisitos" → OK; Spec com `design.md` e Status desatualizado ("Só requisitos") → falha
     apontando "Em andamento"; Spec com `tasks.md` todo `[x]` e Status "Em andamento" → falha

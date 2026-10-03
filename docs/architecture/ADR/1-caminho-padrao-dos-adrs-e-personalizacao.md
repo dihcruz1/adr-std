@@ -1,8 +1,8 @@
-# ADR-0001: Caminho padrão dos ADRs e personalização por projeto e globalmente
+# ADR-1: Caminho padrão dos ADRs e personalização por projeto e globalmente
 
 | Campo | Valor |
 |---|---|
-| **ID** | ADR-0001 |
+| **ID** | ADR-1 |
 | **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
 | **Aprovado em** | 2026-10-01 |
@@ -12,7 +12,7 @@
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill; colaboradores e contribuidores do repositório |
 | **Concerns e aspectos** | Onde a skill deve ler e gravar ADRs? Como projetos legados ou equipes com estrutura própria de diretórios podem usar a skill sem fricção? Como garantir previsibilidade sem engessar o padrão? |
 | **Elementos afetados** | `skill/SKILL.md`; `skill/references/guia-42010.md`; `bin/adr-std`; `bin/adr-std.ps1`; comandos `/adr-std-new`, `/adr-std-list`, `/adr-std-create` (v1.1); `adr-std config` (v1.2 a v1.4) |
-| **Relações com outras decisões** | habilita ADR-0002 |
+| **Relações com outras decisões** | habilita ADR-2 |
 
 ## Contexto e definição do problema
 
@@ -98,6 +98,7 @@ Nenhuma opção de personalização de escopo de workspace (por exemplo, variáv
 | 2026-10-01 | Criação | Diego |
 | 2026-10-01 | Aprovação (Status: Aceito) | Diego |
 | 2026-10-03 | Atualização editorial: referências de versão da CLI (`config path` entregue na v1.4); decisão inalterada | Diego |
+| 2026-10-03 | Renumeração ADR-0001 → ADR-1 conforme ADR-4; texto da decisão inalterado | Diego |
 
 ## Referências
 

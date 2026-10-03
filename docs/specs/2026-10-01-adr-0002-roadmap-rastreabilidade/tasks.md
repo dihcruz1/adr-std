@@ -1,4 +1,4 @@
-# Tarefas — ROADMAP.md como documento central de rastreabilidade (ADR-0002)
+# Tarefas — ROADMAP.md como documento central de rastreabilidade (ADR-2)
 
 | Campo | Detalhe |
 |---|---|
@@ -20,7 +20,7 @@
     retorno 2 em vez de 1 nos 9 casos. GREEN: `skill/scripts/check_roadmap.py` criado; 9 de 9
     testes passaram (cabeçalho ok, cabeçalho errado, ADR sem linha, ADR sem link de volta, Status
     inválido — estes 5 cobrem RF-01 a RF-04; os outros 4 casos do arquivo cobrem a heurística de
-    Status do ADR-0003, ver spec irmã).
+    Status do ADR-3, ver spec irmã).
 
 ## 2. Verificação no ROADMAP real do projeto
 

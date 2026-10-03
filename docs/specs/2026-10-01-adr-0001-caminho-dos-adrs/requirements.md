@@ -1,14 +1,14 @@
-# Requisitos — Caminho padrão dos ADRs e personalização (ADR-0001)
+# Requisitos — Caminho padrão dos ADRs e personalização (ADR-1)
 
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-10-01 |
-| **ADR de origem** | [ADR-0001](../../architecture/ADR/0001-caminho-padrao-dos-adrs-e-personalizacao.md) |
+| **ADR de origem** | [ADR-1](../../architecture/ADR/1-caminho-padrao-dos-adrs-e-personalizacao.md) |
 | **Status** | Gate 1 |
 
 ## Contexto
 
-O ADR-0001 decide a hierarquia de resolução do caminho onde a skill lê e grava ADRs
+O ADR-1 decide a hierarquia de resolução do caminho onde a skill lê e grava ADRs
 (`argumento explícito > .adr-std local > CONVENTIONS.md/AGENTS.md > config global > padrão fixo`).
 Esta spec detalha como essa hierarquia é instruída ao agente (via `SKILL.md`) e verificada.
 
@@ -30,7 +30,7 @@ aceita caminho explícito (nível 1 da hierarquia) sem exigir um layout fixo.
   argumento (nível 1 da hierarquia), continuando a funcionar com qualquer convenção de pastas —
   ele não presume `docs/architecture/ADR/` fixo.
 - **RF-04** — Quando o `SKILL.md` descrever a hierarquia, a ordem e os 5 níveis DEVEM aparecer
-  de forma idêntica à decisão do ADR-0001 (sem nível omitido ou fora de ordem).
+  de forma idêntica à decisão do ADR-1 (sem nível omitido ou fora de ordem).
 
 ## Critério de aceitação (Gherkin)
 
@@ -48,7 +48,7 @@ Cenário: check_adr.py aceita pasta fora do padrão
 
 ## Fora de escopo (YAGNI vs. este requirements.md)
 
-- Implementar `adr-std config path` na CLI (v1.2+, já registrado no ADR-0001 como efeito futuro).
+- Implementar `adr-std config path` na CLI (v1.2+, já registrado no ADR-1 como efeito futuro).
 - Qualquer leitura automática de `.adr-std`/config global por `check_adr.py` — o script já aceita
   caminho explícito (RF-03), e quem resolve os outros 4 níveis é o agente via `SKILL.md`, não o
-  script (decisão do próprio ADR-0001: a lógica de resolução vive nas instruções da skill).
+  script (decisão do próprio ADR-1: a lógica de resolução vive nas instruções da skill).

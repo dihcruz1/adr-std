@@ -1,4 +1,4 @@
-"""Testes do skill/scripts/check_roadmap.py (ADR-0002 e ADR-0003)."""
+"""Testes do skill/scripts/check_roadmap.py (ADR-2 e ADR-3)."""
 
 import subprocess
 import sys

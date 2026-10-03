@@ -43,10 +43,10 @@
 | R-03 | D-01 (design) + README (3.1) |
 | R-04 | 1.1 (teste de subcomando inválido) |
 
-Sem requisito órfão nem tarefa sem requisito. ADR: a decisão já é o ADR-0001 (etapa 2); esta spec
+Sem requisito órfão nem tarefa sem requisito. ADR: a decisão já é o ADR-1 (etapa 2); esta spec
 implementa o critério de Verificação daquele ADR, não cria decisão nova — logo sem commit 1.
 
-**Critério de Verificação do ADR-0001 fechado:** "`adr-std config path` (v1.2+) lê e grava o valor
+**Critério de Verificação do ADR-1 fechado:** "`adr-std config path` (v1.2+) lê e grava o valor
 correto no arquivo de config global" — agora atendido (`config path` sem argumento lê, `<pasta>` grava,
 `--unset` remove; o ida-e-volta com `list` prova que o valor gravado é lido por `resolve_folder`).
 

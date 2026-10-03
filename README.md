@@ -363,7 +363,8 @@ Quebra o padrão anterior de 4 dígitos; veja o `CHANGELOG.md`.
 | Versão | Conteúdo |
 |---|---|
 | 1.1 | Comandos por ação dentro do agente: `/adr-std-create` (com `--ask N` e `--quick`), `/adr-std-supersede`, `/adr-std-review`, `/adr-std-organize`, `/adr-std-link`, `/adr-std-audit`, `/adr-std-check`, `/adr-std-ask` |
-| 1.4 | `adr-std config path` para gravar a pasta de ADRs na config global pela CLI (nível 4 do ADR-0001) |
+| 1.4 | `adr-std config path` para gravar a pasta de ADRs na config global pela CLI (nível 4 do ADR-1) |
+| 2.0 | Numeração dos ADRs sem zeros à esquerda; `adr-std migrate` e migração mostrada pelo `update` (esta versão) |
 | Futuro | `organize` real (renomeia arquivos), mais agentes no menu (a forma de abrir pelo terminal precisa ser confirmada em cada um) |
 
 **Limitações conhecidas:**

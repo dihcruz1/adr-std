@@ -6,7 +6,7 @@ Como as engineering skills devem consumir a documentação de domínio deste rep
 
 - **`GLOSSARY.md`** na raiz do repo (se existir).
 - **`docs/architecture/ADR/`**: leia os ADRs que tocam a área em que vai trabalhar.
-  - O caminho padrão dos ADRs neste projeto é `docs/architecture/ADR/` (decisão registrada no **ADR-0001**).
+  - O caminho padrão dos ADRs neste projeto é `docs/architecture/ADR/` (decisão registrada no **ADR-1**).
   - Leia também o **`docs/architecture/ADR/ROADMAP.md`** para entender o estado de implementação de cada decisão.
 
 Se algum desses arquivos não existir, **prossiga silenciosamente**. Não sinalize a ausência; não sugira criá-los antecipadamente.
@@ -20,9 +20,9 @@ Se algum desses arquivos não existir, **prossiga silenciosamente**. Não sinali
 │   ├── architecture/
 │   │   └── ADR/
 │   │       ├── ROADMAP.md
-│   │       ├── 0001-caminho-padrao-dos-adrs-e-personalizacao.md
-│   │       ├── 0002-roadmap-rastreabilidade-etapas-specs.md
-│   │       └── 0003-atualizacao-automatica-do-roadmap-pelo-agente.md
+│   │       ├── 1-caminho-padrao-dos-adrs-e-personalizacao.md
+│   │       ├── 2-roadmap-rastreabilidade-etapas-specs.md
+│   │       └── 3-atualizacao-automatica-do-roadmap-pelo-agente.md
 │   ├── agents/          ← este diretório
 │   └── specs/           ← especificações técnicas por versão
 └── skill/               ← conteúdo instalado nos agentes
@@ -43,4 +43,4 @@ Se sua saída contradizer um ADR existente, sinalize explicitamente em vez de su
 
 ## Atualização automática do ROADMAP
 
-Conforme **ADR-0003**: sempre que criar ou modificar um ADR ou uma Spec, atualize a linha correspondente em `docs/architecture/ADR/ROADMAP.md` silenciosamente, sem pedir confirmação, e informe ao usuário ao final.
+Conforme **ADR-3**: sempre que criar ou modificar um ADR ou uma Spec, atualize a linha correspondente em `docs/architecture/ADR/ROADMAP.md` silenciosamente, sem pedir confirmação, e informe ao usuário ao final.
