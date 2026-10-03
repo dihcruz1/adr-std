@@ -186,3 +186,10 @@ Os testes nunca usam o `HOME` real. A URL de download é configurável por vari�
 
 - Windows e macOS só são validados no CI até haver testador humano (pendência 2.3).
 - Caminhos dos agentes marcados "a confirmar" podem mudar; corrigir é editar uma linha do `agents.tsv`.
+
+## 12. Modelo de domínio (DDD)
+
+**N/A justificado.** A v1.0 é instalador e CLI de E/S (copiar a skill, ler `agents.tsv`, gravar o estado
+de instalação): não há invariante de domínio que peça entidade rica ou Value Object. `agents.tsv` é dado,
+não código (RNF-05), e o contrato do comando (seção 7) já isola o comportamento. Aplicar DDD tático
+violaria KISS/YAGNI (AGENTS.md: DDD só com invariante de domínio). O vocabulário do domínio está no `GLOSSARY.md`.
