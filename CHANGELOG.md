@@ -5,6 +5,15 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [1.4.1] - 2026-10-03
+
+### Corrigido
+- `bin/adr-std` e `tests/test_cli.sh` rodam no bash 3.2 do macOS: sem `mapfile`, sem array associativo,
+  sem `grep -P`, `sed -i` com sufixo e `wc -l` sem preenchimento. Antes, a instalação quebrava no macOS.
+- Menu de instalação sem escolha (bash e PowerShell) agora indica `--agent` ou `--all` na mensagem de erro.
+- Quatro testes negativos do estado nunca falhavam no macOS (`grep -P` inexistente); agora verificam de verdade.
+- CI (`release.yml`) verde em Ubuntu, macOS e Windows.
+
 ## [1.4.0] - 2026-10-02
 
 ### Adicionado
