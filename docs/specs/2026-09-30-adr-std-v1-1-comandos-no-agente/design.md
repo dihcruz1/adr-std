@@ -83,7 +83,7 @@ O comentário de marcação é o que permite ao instalador saber que o arquivo �
 - `tests/test_cli.ps1` (Pester): espelha os mesmos 4 casos.
 - `SKILL.md`: instruções de `create`/`supersede` (conversa guiada, rodadas de perguntas, `--ask`,
   `--quick`) e `new`/`list` (sem perguntas) — cobertas por teste de texto em
-  `tests/test_check_adr.py` (mesmo padrão já usado para ADR-0001/0003), não por `unittest` de
+  `tests/test_check_adr.py` (mesmo padrão já usado para ADR-1/0003), não por `unittest` de
   comportamento (RNF-03 já registra que a obediência da conversa não é garantida por programa).
 
 ## Modelo de domínio

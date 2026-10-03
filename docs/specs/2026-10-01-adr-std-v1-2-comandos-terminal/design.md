@@ -16,7 +16,7 @@ adr_cli.py link <ADR-A> <tipo> <ADR-B> [--path P] [--name-pattern R]
 adr_cli.py organize --dry-run [--path P] [--name-pattern R]
 ```
 
-A pasta passa de posicional para `--path` (ADR-0001, nome do argumento explícito). Códigos de saída: 0 ok; 1 recurso ausente; 2 uso inválido; 6 sem Python (só nos wrappers).
+A pasta passa de posicional para `--path` (ADR-1, nome do argumento explícito). Códigos de saída: 0 ok; 1 recurso ausente; 2 uso inválido; 6 sem Python (só nos wrappers).
 
 `resolve_folder(path_arg, cwd, config_home)` (função pura, testável): `--path` > `.adr-std` no `cwd` > `<config_home>/adr-std/config` > `docs/architecture/ADR`. Campo lido com `^path\s*[:=]\s*(.+)$`.
 

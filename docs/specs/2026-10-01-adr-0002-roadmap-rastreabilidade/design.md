@@ -1,4 +1,4 @@
-# Design — ROADMAP.md como documento central de rastreabilidade (ADR-0002)
+# Design — ROADMAP.md como documento central de rastreabilidade (ADR-2)
 
 | Campo | Detalhe |
 |---|---|
@@ -8,9 +8,9 @@
 ## Contrato
 
 Novo script `skill/scripts/check_roadmap.py`, só biblioteca padrão (mesmo padrão de
-`check_adr.py`), reaproveitado também pelo ADR-0003 (ver
-[design do ADR-0003](../2026-10-01-adr-0003-roadmap-automatico/design.md) — um único script cobre
-as duas decisões porque a verificação de estrutura (ADR-0002) e a verificação de Status (ADR-0003)
+`check_adr.py`), reaproveitado também pelo ADR-3 (ver
+[design do ADR-3](../2026-10-01-adr-0003-roadmap-automatico/design.md) — um único script cobre
+as duas decisões porque a verificação de estrutura (ADR-2) e a verificação de Status (ADR-3)
 operam sobre a mesma tabela e sobre os mesmos arquivos; separar em dois scripts duplicaria o parser
 da tabela Markdown sem ganho — regra de segurança/consistência com fonte única).
 
@@ -45,5 +45,5 @@ domínio, Value Object ou I/O externo substituível que justifique Repositório/
 - Parser de tabela: linha por linha, split por `|`, sem dependência externa (biblioteca de Markdown
   seria over-engineering para uma tabela de 6 colunas fixas — KISS).
 - O script não modifica nada (é só verificação); a atualização do ROADMAP continua sendo ação do
-  agente via `SKILL.md` (ADR-0003), não deste script — mantém a separação decidida no ADR-0003
+  agente via `SKILL.md` (ADR-3), não deste script — mantém a separação decidida no ADR-3
   entre "quem decide atualizar" (agente) e "quem confere" (script, se executável).

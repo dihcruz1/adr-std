@@ -1,28 +1,28 @@
-# ADR-0003: Atualização automática e silenciosa do ROADMAP.md pelo agente
+# ADR-3: Atualização automática e silenciosa do ROADMAP.md pelo agente
 
 | Campo | Valor |
 |---|---|
-| **ID** | ADR-0003 |
+| **ID** | ADR-3 |
 | **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
 | **Aprovado em** | 2026-10-01 |
-| **Modificado em** | — |
+| **Modificado em** | 2026-10-03 |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill |
 | **Concerns e aspectos** | O ROADMAP.md fica desatualizado se depender de atualização manual. Como o agente deve manter o ROADMAP sincronizado com os ADRs e Specs sem criar fricção no fluxo de trabalho? Quando atualizar? Linha por linha ou regenerar tudo? O usuário precisa confirmar? |
 | **Elementos afetados** | `skill/SKILL.md`; `skill/references/guia-42010.md`; ações `/adr-std-create`, `/adr-std-supersede`, `/adr-std-new`; qualquer ação da skill que crie ou modifique um ADR ou Spec; `docs/architecture/ADR/ROADMAP.md` |
-| **Relações com outras decisões** | refina ADR-0002 |
+| **Relações com outras decisões** | refina ADR-2 |
 
 ## Contexto e definição do problema
 
-O ADR-0002 decidiu que `docs/architecture/ADR/ROADMAP.md` é o documento central de rastreabilidade entre ADRs, etapas e specs. Porém, a ADR-0002 deixou como limitação registrada que a geração automática do ROADMAP não foi avaliada e exigiria nova decisão. A decisão aqui é: o ROADMAP deve ser automaticamente preenchido e mantido pelo agente sempre que ele criar ou modificar um ADR ou uma Spec, sem intervenção manual e sem pedir confirmação ao usuário.
+O ADR-2 decidiu que `docs/architecture/ADR/ROADMAP.md` é o documento central de rastreabilidade entre ADRs, etapas e specs. Porém, a ADR-2 deixou como limitação registrada que a geração automática do ROADMAP não foi avaliada e exigiria nova decisão. A decisão aqui é: o ROADMAP deve ser automaticamente preenchido e mantido pelo agente sempre que ele criar ou modificar um ADR ou uma Spec, sem intervenção manual e sem pedir confirmação ao usuário.
 
 ## Restrições e suposições
 
 - **Restrição:** O agente não pode fazer commit nem push sem autorização expressa (proibição geral da skill).
 - **Restrição:** A lógica de atualização do ROADMAP é regra da skill (`SKILL.md`), não código externo — o agente a executa ao ler as instruções.
-- **Suposição:** O ROADMAP segue a estrutura de tabela definida no ADR-0002.
+- **Suposição:** O ROADMAP segue a estrutura de tabela definida no ADR-2.
 - **Suposição:** O agente consegue detectar, ao criar ou modificar um ADR ou Spec, se o ROADMAP já contém uma linha para aquele ADR/Spec ou se precisa criar uma nova.
 - **Suposição:** A atualização silenciosa não omite informação relevante — o agente menciona ao usuário ao final da ação que o ROADMAP foi atualizado (sem pedir confirmação prévia).
 
@@ -63,7 +63,7 @@ Escolhemos a **Opção 2: atualização automática e silenciosa, linha por linh
 
 ## Justificativa
 
-A Opção 1 (manual) foi a situação anterior ao ADR-0002 e resulta em ROADMAP desatualizado. A Opção 3 (com confirmação) cria fricção desnecessária em toda criação de ADR — o usuário já autorizou a ação principal e a atualização do ROADMAP é consequência natural. A Opção 4 (comando explícito) é complementar mas insuficiente como única estratégia. A Opção 2 equilibra automação sem surpresa (o usuário é informado ao final) e granularidade segura (só a linha afetada é tocada). É consistente com o comportamento esperado de ferramentas de automação de documentação no ecossistema.
+A Opção 1 (manual) foi a situação anterior ao ADR-2 e resulta em ROADMAP desatualizado. A Opção 3 (com confirmação) cria fricção desnecessária em toda criação de ADR — o usuário já autorizou a ação principal e a atualização do ROADMAP é consequência natural. A Opção 4 (comando explícito) é complementar mas insuficiente como única estratégia. A Opção 2 equilibra automação sem surpresa (o usuário é informado ao final) e granularidade segura (só a linha afetada é tocada). É consistente com o comportamento esperado de ferramentas de automação de documentação no ecossistema.
 
 ## Prós e contras das opções
 
@@ -74,7 +74,7 @@ A Opção 1 (manual) foi a situação anterior ao ADR-0002 e resulta em ROADMAP 
 ### Opção 1 — Manual (rejeitada)
 - Prós: simples; sem risco de atualização errada pelo agente.
 - Contras: ROADMAP tende a ficar desatualizado; elimina o principal benefício do documento.
-- **Motivo da rejeição:** Reintroduz o problema que o ADR-0002 resolveu.
+- **Motivo da rejeição:** Reintroduz o problema que o ADR-2 resolveu.
 
 ### Opção 3 — Automática com confirmação (rejeitada)
 - Prós: mais segura; usuário tem controle total.
@@ -92,7 +92,7 @@ A Opção 1 (manual) foi a situação anterior ao ADR-0002 e resulta em ROADMAP 
 - **Negativas / custo:** A skill precisa de novas instruções no `SKILL.md` descrevendo: quando atualizar, como inferir o status da Spec (existência de `requirements.md`, `design.md`, `tasks.md`), e como informar o usuário ao final.
 - **Neutras / acompanhar:** Casos em que o agente infere incorretamente o status da Spec devem ser tratados: o usuário pode corrigir manualmente a linha; uma futura Opção 4 (`/adr-std-roadmap`) pode ressincronizar tudo.
 - **Efeito em outras decisões:**
-  - Refina ADR-0002 (que deixou a automação como ponto em aberto).
+  - Refina ADR-2 (que deixou a automação como ponto em aberto).
   - Afeta a implementação da v1.1: as instruções de `create`, `supersede` e `new` no `SKILL.md` devem incluir o passo de atualização do ROADMAP.
 
 ## Verificação
@@ -114,10 +114,11 @@ A inferência de status a partir da existência de arquivos (`requirements.md`, 
 |---|---|---|
 | 2026-10-01 | Criação | Diego |
 | 2026-10-01 | Aprovação (Status: Aceito) | Diego |
+| 2026-10-03 | Renumeração ADR-0003 → ADR-3 conforme ADR-4; texto da decisão inalterado | Diego |
 
 ## Referências
 
 - ISO/IEC/IEEE 42010:2022, 6.10.1 e 6.10.2
-- [ADR-0002](0002-roadmap-rastreabilidade-etapas-specs.md) (refinado por esta decisão)
+- [ADR-2](2-roadmap-rastreabilidade-etapas-specs.md) (refinado por esta decisão)
 - [Spec v1.1 — requirements.md](../../specs/2026-09-30-adr-std-v1-1-comandos-no-agente/requirements.md) (RF-17, implementação de `new` e `list`)
 - [ROADMAP de arquitetura](./ROADMAP.md)

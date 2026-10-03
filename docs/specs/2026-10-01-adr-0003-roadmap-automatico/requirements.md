@@ -1,18 +1,18 @@
-# Requisitos — Atualização automática e silenciosa do ROADMAP (ADR-0003)
+# Requisitos — Atualização automática e silenciosa do ROADMAP (ADR-3)
 
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-10-01 |
-| **ADR de origem** | [ADR-0003](../../architecture/ADR/0003-atualizacao-automatica-do-roadmap-pelo-agente.md) |
+| **ADR de origem** | [ADR-3](../../architecture/ADR/3-atualizacao-automatica-do-roadmap-pelo-agente.md) |
 | **Status** | Gate 1 |
 
 ## Contexto
 
-O ADR-0003 decide que o agente atualiza o ROADMAP sozinho, linha por linha, ao criar/modificar um
+O ADR-3 decide que o agente atualiza o ROADMAP sozinho, linha por linha, ao criar/modificar um
 ADR ou uma Spec, usando uma heurística de Status baseada na existência de `requirements.md`,
 `design.md` e `tasks.md` (e se todas as tarefas de `tasks.md` estão `[x]`). A instrução já foi
 escrita em `skill/SKILL.md` (seção "ROADMAP.md (atualização automática)"). Esta spec cobre: (1) a
-instrução em si (texto, mesmo molde da tarefa 1.1 do ADR-0001) e (2) a parte mecanicamente
+instrução em si (texto, mesmo molde da tarefa 1.1 do ADR-1) e (2) a parte mecanicamente
 verificável — conferir que o Status registrado bate com a heurística, dado o estado real dos
 arquivos no disco.
 
@@ -53,6 +53,6 @@ Cenário: Spec "*Pendente*" não gera falso positivo
 
 ## Fora de escopo
 
-- O script não escreve no ROADMAP (quem atualiza é o agente, por decisão do próprio ADR-0003); o
+- O script não escreve no ROADMAP (quem atualiza é o agente, por decisão do próprio ADR-3); o
   script só confere e reporta divergência — automação de escrita violaria a separação "quem decide
-  atualizar (agente) vs. quem confere (script)" registrada no design do ADR-0002.
+  atualizar (agente) vs. quem confere (script)" registrada no design do ADR-2.

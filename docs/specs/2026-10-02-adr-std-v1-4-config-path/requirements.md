@@ -3,13 +3,13 @@
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-10-02 |
-| **ADR de origem** | [ADR-0001](../../architecture/ADR/0001-caminho-padrao-dos-adrs-e-personalizacao.md) (etapa 2: `adr-std config path` na CLI) |
+| **ADR de origem** | [ADR-1](../../architecture/ADR/1-caminho-padrao-dos-adrs-e-personalizacao.md) (etapa 2: `adr-std config path` na CLI) |
 | **Status** | Gate 1 |
 | **Depende de** | v1.2 ([spec](../2026-10-01-adr-std-v1-2-comandos-terminal/), leitura da config global já implementada em `resolve_folder`) e v1.3 ([spec](../2026-10-01-adr-std-v1-3-conversa-terminal/), namespace `config` com `config agent`) |
 
 ## 1. Contexto
 
-O ADR-0001 decidiu a hierarquia de resolução da pasta de ADRs
+O ADR-1 decidiu a hierarquia de resolução da pasta de ADRs
 (`--path > .adr-std > CONVENTIONS/AGENTS > config global > padrão`) e, na seção **Verificação**,
 previu `adr-std config path` como a forma de o usuário **ler e gravar** o campo `path` do arquivo
 de config global (`~/.config/adr-std/config` no Linux/macOS, `%APPDATA%\adr-std\config` no Windows).
@@ -18,12 +18,12 @@ Hoje a parte de **leitura** da config global já existe e é usada por `new`, `l
 `organize` (`resolve_folder` em `skill/scripts/adr_cli.py`), e o namespace `config` já existe no CLI,
 mas só com o subcomando `agent` (v1.3). Falta o subcomando `path` que **grava** esse campo pela CLI,
 sem o usuário precisar editar o arquivo à mão. Enquanto ele não existir, o critério de Verificação do
-ADR-0001 fica cumprido só pela metade.
+ADR-1 fica cumprido só pela metade.
 
 Esta versão fecha essa etapa: adiciona `adr-std config path` (bash e PowerShell), reaproveitando o
 mesmo arquivo de config, o mesmo campo `path` e a mesma precedência já implementados.
 
-## 2. Decisões fechadas (ADR-0001 + simetria com `config agent`)
+## 2. Decisões fechadas (ADR-1 + simetria com `config agent`)
 
 | # | Decisão |
 |---|---|
@@ -39,7 +39,7 @@ mesmo arquivo de config, o mesmo campo `path` e a mesma precedência já impleme
 |---|---|
 | **Config global** | Arquivo `~/.config/adr-std/config` (Linux/macOS) ou `%APPDATA%\adr-std\config` (Windows), compartilhado com o estado da skill |
 | **Campo `path`** | Linha `path: <pasta>` na config global que define a pasta de ADRs quando não há `--path` nem `.adr-std` |
-| **Precedência D-05 (ADR-0001)** | `--path` > `.adr-std` (campo `path`) > config global (campo `path`) > `docs/architecture/ADR/` |
+| **Precedência D-05 (ADR-1)** | `--path` > `.adr-std` (campo `path`) > config global (campo `path`) > `docs/architecture/ADR/` |
 
 ## 4. Requisitos funcionais (EARS)
 

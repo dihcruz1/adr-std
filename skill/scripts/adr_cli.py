@@ -2,7 +2,7 @@
 """Comandos mecânicos da skill adr-std no terminal (v1.2): new, list, link, organize.
 
 Mesma lógica de parsing e de nome de arquivo de check_adr.py (reaproveitada por importação,
-mesmo diretório). Pasta dos ADRs (ADR-0001): --path > `.adr-std` (campo `path`) > config global
+mesmo diretório). Pasta dos ADRs (ADR-1): --path > `.adr-std` (campo `path`) > config global
 (campo `path`) > docs/architecture/ADR. A convenção em `CONVENTIONS.md`/`AGENTS.md` (texto livre)
 é lida só pelo agente, via SKILL.md.
 
@@ -58,7 +58,7 @@ def read_path_field(config_file: Path) -> Path | None:
 
 
 def resolve_folder(path_arg: str | None, cwd: Path, config_home: Path) -> Path:
-    """Precedência do ADR-0001: --path > .adr-std local > config global > padrão."""
+    """Precedência do ADR-1: --path > .adr-std local > config global > padrão."""
     if path_arg:
         return Path(path_arg)
     return (
