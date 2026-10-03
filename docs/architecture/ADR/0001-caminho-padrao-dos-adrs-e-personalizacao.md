@@ -6,12 +6,12 @@
 | **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
 | **Aprovado em** | 2026-10-01 |
-| **Modificado em** | — |
+| **Modificado em** | 2026-10-03 |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill; colaboradores e contribuidores do repositório |
 | **Concerns e aspectos** | Onde a skill deve ler e gravar ADRs? Como projetos legados ou equipes com estrutura própria de diretórios podem usar a skill sem fricção? Como garantir previsibilidade sem engessar o padrão? |
-| **Elementos afetados** | `skill/SKILL.md`; `skill/references/guia-42010.md`; `bin/adr-std`; `bin/adr-std.ps1`; comandos `/adr-std-new`, `/adr-std-list`, `/adr-std-create` (v1.1); `adr-std config` (v1.2+) |
+| **Elementos afetados** | `skill/SKILL.md`; `skill/references/guia-42010.md`; `bin/adr-std`; `bin/adr-std.ps1`; comandos `/adr-std-new`, `/adr-std-list`, `/adr-std-create` (v1.1); `adr-std config` (v1.2 a v1.4) |
 | **Relações com outras decisões** | habilita ADR-0002 |
 
 ## Contexto e definição do problema
@@ -73,11 +73,11 @@ A Opção 1 (padrão fixo) resolve o caso simples mas cria atrito desnecessário
 ## Consequências
 
 - **Positivas:** Adoção da skill em projetos legados sem mudança de estrutura; alinhamento com ferramentas do ecossistema.
-- **Negativas / custo:** A lógica de resolução de caminho precisa ser implementada no `SKILL.md` (instruções ao agente) e nas versões CLI (v1.2+).
+- **Negativas / custo:** A lógica de resolução de caminho precisa ser implementada no `SKILL.md` (instruções ao agente) e nas versões CLI (leitura na v1.2; escrita na v1.4).
 - **Neutras / acompanhar:** Documentar o arquivo `.adr-std` de configuração local no README e no guia.
 - **Efeito em outras decisões:**
   - Etapa 1 (v1.1): atualizar o `SKILL.md` para instruir o agente a seguir a hierarquia de resolução. Detalhada na spec v1.1 ([requirements.md](../../specs/2026-09-30-adr-std-v1-1-comandos-no-agente/requirements.md)).
-  - Etapa 2 (v1.2+): implementar `adr-std config path` na CLI.
+  - Etapa 2 (v1.2 e v1.4): a v1.2 lê a config global; a v1.4 entrega `adr-std config path` (escrita) na CLI.
 
 ## Verificação
 
@@ -85,11 +85,11 @@ A Opção 1 (padrão fixo) resolve o caso simples mas cria atrito desnecessário
 - O agente respeita o `path` definido em `.adr-std` na raiz do projeto, criando ADRs na pasta indicada.
 - O agente respeita a config global em `~/.config/adr-std/config` quando não há `.adr-std` local.
 - O argumento explícito de pasta (quando aplicável) sobrescreve todas as configurações.
-- `adr-std config path` (v1.2+) lê e grava o valor correto no arquivo de config global.
+- `adr-std config path` (v1.4; a leitura existe desde a v1.2) lê e grava o valor correto no arquivo de config global.
 
 ## Limitações deste registro
 
-Nenhuma opção de personalização de escopo de workspace (por exemplo, variável de ambiente por sessão) foi avaliada; caso necessária, exige nova decisão. A implementação do `adr-std config` na CLI é escopo da v1.2 e não foi detalhada aqui.
+Nenhuma opção de personalização de escopo de workspace (por exemplo, variável de ambiente por sessão) foi avaliada; caso necessária, exige nova decisão. A implementação do `adr-std config` na CLI foi entregue nas specs da v1.2 (leitura) e da v1.4 (`config path`) e não é detalhada aqui.
 
 ## Histórico de modificações
 
@@ -97,6 +97,7 @@ Nenhuma opção de personalização de escopo de workspace (por exemplo, variáv
 |---|---|---|
 | 2026-10-01 | Criação | Diego |
 | 2026-10-01 | Aprovação (Status: Aceito) | Diego |
+| 2026-10-03 | Atualização editorial: referências de versão da CLI (`config path` entregue na v1.4); decisão inalterada | Diego |
 
 ## Referências
 
