@@ -85,8 +85,8 @@ test_install_explicit() {
   assert_file "$HOME/.claude/skills/adr-std/references/guia-42010.md" || return 1
   assert_file "$HOME/.claude/skills/adr-std/.installed-by-adr-std" || return 1
   assert_no_file "$HOME/.codex/skills/adr-std" || return 1
-  grep -qP '^agent\tclaude-code\t' "$(state_file)" || fail "estado sem claude-code" || return 1
-  grep -qP '^version\t' "$(state_file)" || fail "estado sem versão" || return 1
+  grep -qE '^agent'$'\t''claude-code'$'\t''' "$(state_file)" || fail "estado sem claude-code" || return 1
+  grep -qE '^version'$'\t''' "$(state_file)" || fail "estado sem versão" || return 1
 
   rm -rf "$HOME/.claude/skills" "$HOME/.config"
   "$CLI" install --agent claude-code,codex >/dev/null || fail "--agent com vírgula falhou" || return 1
@@ -105,7 +105,7 @@ test_install_dedupe() {
   assert_file "$HOME/.agents/skills/adr-std/SKILL.md" || return 1
   assert_no_file "$HOME/.gemini/skills/adr-std" || return 1
   assert_no_file "$HOME/.config/opencode/skills/adr-std" || return 1
-  local n; n=$(grep -cP '^agent\t(gemini-cli|opencode)\t'"$HOME"'/.agents/skills/adr-std$' "$(state_file)")
+  local n; n=$(grep -cE '^agent'$'\t''(gemini-cli|opencode)'$'\t'''"$HOME"'/.agents/skills/adr-std$' "$(state_file)")
   assert_eq "$n" "2" "agentes registrados na pasta compartilhada"
 }
 
@@ -172,7 +172,7 @@ test_install_idempotent() {
   "$CLI" install claude-code >/dev/null || fail "segunda instalação falhou" || return 1
   assert_file "$HOME/.claude/skills/adr-std/SKILL.md" || return 1
   assert_no_file "$HOME/.claude/skills/adr-std/residuo.txt" || return 1
-  local n; n=$(grep -cP '^agent\tclaude-code\t' "$(state_file)")
+  local n; n=$(grep -cE '^agent'$'\t''claude-code'$'\t''' "$(state_file)")
   assert_eq "$n" "1" "linhas do agente no estado"
 }
 
@@ -182,7 +182,7 @@ test_uninstall_one() {
   "$CLI" uninstall codex >/dev/null || fail "uninstall falhou" || return 1
   assert_no_file "$HOME/.codex/skills/adr-std" || return 1
   assert_file "$HOME/.claude/skills/adr-std/SKILL.md" || return 1
-  grep -qP '^agent\tcodex\t' "$(state_file)" && fail "codex ainda no estado"
+  grep -qE '^agent'$'\t''codex'$'\t''' "$(state_file)" && fail "codex ainda no estado"
   return 0
 }
 
@@ -194,7 +194,7 @@ test_uninstall_all() {
   assert_no_file "$HOME/.claude/skills/adr-std" || return 1
   assert_no_file "$HOME/.agents/skills/adr-std" || return 1
   assert_file "$HOME/.codex/skills/adr-std/meu.txt" || return 1
-  grep -qP '^agent\t' "$(state_file)" && fail "agentes ainda no estado"
+  grep -qE '^agent'$'\t''' "$(state_file)" && fail "agentes ainda no estado"
   return 0
 }
 
@@ -235,14 +235,14 @@ test_install_commands() {
   # shellcheck disable=SC2016 # literal $ARGUMENTS esperado no arquivo, não expansão
   assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" '$ARGUMENTS' || return 1
   assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" 'ação "create"' || return 1
-  grep -qP '^command\tclaude-code\t' "$(state_file)" || fail "estado sem registro de comando"
+  grep -qE '^command'$'\t''claude-code'$'\t''' "$(state_file)" || fail "estado sem registro de comando"
 }
 
 test_install_no_commands() {
   mkdir -p "$HOME/.claude"
   "$CLI" install --no-commands claude-code >/dev/null || fail "install falhou" || return 1
   assert_no_file "$HOME/.claude/commands/adr-std-create.md" || return 1
-  grep -qP '^command\t' "$(state_file)" 2>/dev/null && fail "estado com comando apesar de --no-commands"
+  grep -qE '^command'$'\t''' "$(state_file)" 2>/dev/null && fail "estado com comando apesar de --no-commands"
   return 0
 }
 
@@ -271,7 +271,7 @@ test_uninstall_removes_commands() {
   "$CLI" uninstall claude-code >/dev/null || fail "uninstall falhou" || return 1
   assert_no_file "$HOME/.claude/commands/adr-std-create.md" || return 1
   assert_file "$HOME/.claude/commands/alheio.md" || return 1
-  grep -qP '^command\t' "$(state_file)" 2>/dev/null && fail "comandos ainda no estado"
+  grep -qE '^command'$'\t''' "$(state_file)" 2>/dev/null && fail "comandos ainda no estado"
   return 0
 }
 
