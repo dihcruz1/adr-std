@@ -781,7 +781,8 @@ run_test() {
 main() {
   local tests=("$@")
   if [ ${#tests[@]} -eq 0 ]; then
-    mapfile -t tests < <(declare -F | awk '{print $3}' | grep '^test_' | sed 's/^test_//')
+    local name
+    while IFS= read -r name; do tests+=("$name"); done < <(declare -F | awk '{print $3}' | grep '^test_' | sed 's/^test_//')
   fi
   for t in "${tests[@]}"; do run_test "$t"; done
   echo "Resultado: $PASS passaram, $FAIL falharam${FAILED:+ (${FAILED[*]})}"
