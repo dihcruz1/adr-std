@@ -300,7 +300,7 @@ function Select-Agent {
         if ($tok -match '^\d+$' -and [int]$tok -ge 1 -and [int]$tok -le $found.Count) { $chosen += $found[[int]$tok - 1] }
         else { Stop-AdrStd 2 "escolha inválida: $tok" }
     }
-    if ($chosen.Count -eq 0) { Stop-AdrStd 3 'nenhum agente escolhido' }
+    if ($chosen.Count -eq 0) { Stop-AdrStd 3 'nenhum agente escolhido. Indique os agentes com --agent (ex.: --agent claude-code) ou use --all' }
     return $chosen
 }
 
