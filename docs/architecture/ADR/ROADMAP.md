@@ -17,6 +17,8 @@ Este documento acompanha a transição das decisões arquiteturais em etapas de 
 | **2** | ROADMAP.md como documento central de rastreabilidade de etapas e specs | [ADR-0002](0002-roadmap-rastreabilidade-etapas-specs.md) | [spec](../../specs/2026-10-01-adr-0002-roadmap-rastreabilidade/requirements.md) | Concluída | `skill/scripts/check_roadmap.py` + `tests/test_check_roadmap.py` (9/9); rodado contra este ROADMAP: `[OK] ROADMAP consistente` |
 | **3** | Atualização automática e silenciosa do ROADMAP pelo agente | [ADR-0003](0003-atualizacao-automatica-do-roadmap-pelo-agente.md) | [spec](../../specs/2026-10-01-adr-0003-roadmap-automatico/requirements.md) | Concluída | `SKILL.md` instrui a regra; `check_roadmap.py` confere a heurística de Status (`tests/test_check_roadmap.py`, casos de divergência) |
 
+| **4** | Numeração dos ADRs sem zeros à esquerda (`1-titulo.md`, `ADR-1`) | [ADR-4](4-numeracao-dos-adrs-sem-zeros-a-esquerda.md) | — | Não iniciada | ADR proposto; spec ainda não aberta |
+
 ---
 
 ## Etapas planejadas das specs de produto
