@@ -10,8 +10,8 @@
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill |
-| **Concerns e aspectos** | Qual é a convenção padrão de numeração dos ADRs: `0001-titulo.md` ou `1-titulo.md`? O ID interno acompanha o nome do arquivo? O que acontece com os ADRs já existentes e com projetos que usam outra convenção? |
-| **Elementos afetados** | `skill/scripts/check_adr.py`; `skill/scripts/check_roadmap.py`; `skill/scripts/adr_cli.py`; `skill/SKILL.md`; `skill/references/template-madr.md`, `checklist.md` e `guia-42010.md`; `GLOSSARY.md`; `docs/agents/domain.md`; `tests/`; ADRs 1 a 3 (atuais 0001 a 0003) e `docs/architecture/ADR/ROADMAP.md` |
+| **Concerns e aspectos** | Qual é a convenção padrão de numeração dos ADRs: `0001-titulo.md` ou `1-titulo.md`? O ID interno acompanha o nome do arquivo? O que acontece com os ADRs já existentes e com projetos que usam outra convenção? Como adequar a documentação, os links e as referências dos projetos que já usam a skill? |
+| **Elementos afetados** | `skill/scripts/check_adr.py`; `skill/scripts/check_roadmap.py`; `skill/scripts/adr_cli.py`; `skill/scripts/migrate_numbering.py` (novo); `bin/adr-std` e `bin/adr-std.ps1` (comando `migrate` e gancho do `update`); `skill/SKILL.md`; `skill/references/template-madr.md`, `checklist.md` e `guia-42010.md`; `GLOSSARY.md`; `docs/agents/domain.md`; `tests/`; ADRs 1 a 3 (atuais 0001 a 0003) e `docs/architecture/ADR/ROADMAP.md` |
 | **Relações com outras decisões** | influencia ADR-0001, ADR-0002 e ADR-0003 (nomes de arquivo e links serão renomeados); é compatível com a precedência de caminho do ADR-0001 |
 
 ## Contexto e definição do problema
@@ -21,7 +21,8 @@ Hoje o padrão da skill é `NNNN-<titulo-em-kebab-case>.md`, com 4 dígitos e ze
 ## Restrições e suposições
 
 - **Restrição:** nenhum ADR é apagado e links entre ADRs e specs não podem quebrar (SKILL.md, "Revisar ou reorganizar ADRs").
-- **Restrição:** renomear arquivos exige plano mostrado antes e autorização; neste caso, o solicitante autorizou o renomeio dos ADRs 0001 a 0003.
+- **Restrição:** renomear arquivos exige plano mostrado antes e autorização (SKILL.md); o solicitante autorizou o renomeio dos ADRs 0001 a 0003 deste repositório e a execução do script de migração pelo `update`, desde que o plano seja mostrado e o usuário confirme a aplicação.
+- **Restrição:** o primeiro `update` a partir de uma versão anterior à 2.0 é conduzido pelo wrapper e pelo instalador antigos, que não conhecem o script; a migração roda no `update` seguinte ou pelo comando `adr-std migrate`.
 - **Restrição:** a convenção do projeto prevalece sobre o padrão da skill (precedência do ADR-0001 e SKILL.md, passo 4 de "Criar um ADR").
 - **Suposição:** o número é sempre inteiro positivo, sequencial, maior existente + 1, sem reuso.
 - **Suposição:** sem zeros à esquerda, a ordem alfabética do sistema de arquivos deixa de coincidir com a ordem numérica (`10-` antes de `2-`); a ordenação por número passa a ser responsabilidade das ferramentas da skill.
@@ -32,6 +33,7 @@ Hoje o padrão da skill é `NNNN-<titulo-em-kebab-case>.md`, com 4 dígitos e ze
 - **Coerência:** nome do arquivo, ID interno e referências cruzadas com a mesma forma (`1-...`, `ADR-1`).
 - **Compatibilidade:** projetos com outra convenção continuam funcionando por `--name-pattern` ou pela convenção declarada.
 - **Segurança de links:** a migração dos ADRs existentes não pode deixar referência quebrada.
+- **Segurança da operação:** mexer em arquivos do projeto do usuário exige plano visível, confirmação, recusa em caso de colisão ou alterações não commitadas, e saída para quem quer manter os zeros.
 - **Fonte única:** a regra de numeração deve viver em um só lugar no código, e não em cada script.
 
 ## Opções consideradas
@@ -49,7 +51,9 @@ Regras:
 
 > 1. O próximo número é o maior número existente + 1 e nunca é reutilizado. A comparação é numérica, não alfabética.
 > 2. Projetos que declaram outra convenção (`.adr-std`, `CONVENTIONS.md`, `AGENTS.md`, `--name-pattern`) mantêm a sua; a ferramenta respeita o padrão informado em todos os comandos, inclusive `check_roadmap.py` e a renumeração.
-> 3. Os ADRs deste repositório (0001 a 0003) são renomeados para 1 a 3, com IDs e links atualizados em um único passo, com plano mostrado antes.
+> 3. A adequação dos projetos existentes é feita por um script Python da skill (`migrate_numbering.py`, comando `adr-std migrate`): renomeia os ADRs com zeros à esquerda (`0001-x.md` → `1-x.md`, mesmo número, sem renumerar) e corrige ID, links e referências em toda a documentação Markdown do projeto. Por omissão o script só mostra o plano; aplicar exige `--apply` ou confirmação.
+> 4. O `adr-std update` executa esse script no projeto atual depois de atualizar a skill: mostra o plano e, em terminal interativo, pergunta se aplica; sem terminal, só imprime o plano e o comando para aplicar. Projetos que declaram a numeração com zeros (`numbering: padded` no `.adr-std`) ou o uso de `update --no-migrate` não são migrados.
+> 5. Os ADRs deste repositório (0001 a 0003) são migrados com esse mesmo script, com plano mostrado antes.
 
 ## Justificativa
 
@@ -79,8 +83,8 @@ A Opção 2 atende à preferência do solicitante e mantém nome, ID e referênc
 ## Consequências
 
 - **Positivas:** numeração simples e coerente em nome, ID e referências; regra de numeração em fonte única.
-- **Negativas / custo:** renomeação dos ADRs 0001 a 0003 e atualização de links no ROADMAP, nas specs e em `docs/agents/domain.md`; links externos ao repositório para os nomes antigos quebram; mudança em scripts, template, checklist, guia, SKILL.md, glossário, testes e fixtures.
-- **Neutras / acompanhar:** `ls` e listagens do editor passam a ordenar `10-` antes de `2-`; a CLI da skill ordena numericamente. Projetos legados com zeros à esquerda precisam do padrão declarado na convenção para continuar passando na verificação.
+- **Negativas / custo:** novo script de migração com testes e manutenção; renomeação dos ADRs 0001 a 0003 e atualização de links no ROADMAP, nas specs e em `docs/agents/domain.md`; links externos ao repositório para os nomes antigos quebram; mudança em scripts, template, checklist, guia, SKILL.md, glossário, testes e fixtures.
+- **Neutras / acompanhar:** o script reescreve texto de documentação em todo o `*.md` do projeto; exemplos que mencionem `ADR-0001` como formato antigo precisam de `--exclude`. `ls` e listagens do editor passam a ordenar `10-` antes de `2-`; a CLI da skill ordena numericamente. Projetos legados com zeros à esquerda precisam do padrão declarado na convenção para continuar passando na verificação.
 - **Efeito em outras decisões:** o texto dos ADRs 1 a 3 mantém a decisão; só o ID, o nome do arquivo e os links mudam, e o "Histórico de modificações" de cada um registra a renumeração. O ADR-0002 e o ADR-0003 citam `ADR-0001` e afins no corpo; essas referências passam a `ADR-1` e afins.
 
 ## Verificação
@@ -89,17 +93,20 @@ A Opção 2 atende à preferência do solicitante e mantém nome, ID e referênc
 - Com `--name-pattern` ou convenção declarada de 4 dígitos, `check_adr.py` e `check_roadmap.py` aprovam `0001-titulo.md`.
 - `adr-std new` numera o ADR seguinte por maior número + 1, em ordem numérica, inclusive com `9-` e `10-` na mesma pasta.
 - `adr-std organize --dry-run` propõe nomes sem zeros à esquerda.
+- `adr-std migrate` sem `--apply` não altera nenhum arquivo e imprime o plano; com `--apply` renomeia (com `git mv` em repositório git), corrige ID, links e referências, e uma segunda execução não propõe mudança. Recusa colisão de nome e alterações não commitadas nos arquivos afetados.
+- `adr-std update` mostra o plano da migração no projeto atual, aplica só com confirmação interativa e respeita `numbering: padded` e `--no-migrate`.
 - Após a migração, `check_adr.py` e `check_roadmap.py` passam na pasta de ADRs do repositório e nenhum link para `0001-`, `0002-` ou `0003-` permanece em `docs/`, `skill/`, `tests/` e na raiz.
 
 ## Limitações deste registro
 
-Não decide a política de ordenação visual fora das ferramentas da skill (por exemplo, `ls`). Não cobre migração de repositórios de terceiros. O impacto exato nos bins `bin/adr-std` e `bin/adr-std.ps1` será confirmado na spec; se ela mostrar impacto relevante, ele é tratado ali.
+Não decide a política de ordenação visual fora das ferramentas da skill (por exemplo, `ls`). Não cobre migração de repositórios de terceiros. O script não migra de sem zeros para com zeros, não renumera para fechar lacunas e só trata arquivos `*.md`. O primeiro `update` a partir de uma versão anterior à 2.0 não executa a migração (limitação do wrapper e do instalador antigos). Os bins `bin/adr-std` e `bin/adr-std.ps1` mudam só para o comando `migrate` e o gancho do `update`.
 
 ## Histórico de modificações
 
 | Data | Alteração | Autor |
 |---|---|---|
 | 2026-10-03 | Criação (Status: Proposto) | Diego |
+| 2026-10-03 | Inclui o script de migração executado pelo `adr-std update` (regras 3 a 5) | Diego |
 
 ## Referências
 
