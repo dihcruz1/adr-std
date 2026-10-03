@@ -24,10 +24,10 @@ test_agents_file() {
   local rows ids unique bad
   rows=$(grep -v '^#' "$f" | grep -c .)
   assert_eq "$rows" "15" "linhas de agentes" || return 1
-  bad=$(grep -v '^#' "$f" | grep . | awk -F'\t' 'NF != 5' | wc -l)
+  bad=$(grep -v '^#' "$f" | grep . | awk -F'\t' 'NF != 5' | wc -l | tr -d ' ')
   assert_eq "$bad" "0" "linhas sem 5 colunas" || return 1
-  ids=$(grep -v '^#' "$f" | grep . | cut -f1 | wc -l)
-  unique=$(grep -v '^#' "$f" | grep . | cut -f1 | sort -u | wc -l)
+  ids=$(grep -v '^#' "$f" | grep . | cut -f1 | wc -l | tr -d ' ')
+  unique=$(grep -v '^#' "$f" | grep . | cut -f1 | sort -u | wc -l | tr -d ' ')
   assert_eq "$unique" "$ids" "ids repetidos" || return 1
   assert_file "$ROOT/VERSION" || return 1
   grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$' "$ROOT/VERSION" || fail "VERSION fora do formato X.Y.Z"
@@ -39,12 +39,12 @@ test_command_tables() {
   assert_file "$tf" || return 1
   local rows; rows=$(grep -v '^#' "$cf" | grep -c .)
   assert_eq "$rows" "10" "ações em commands.tsv" || return 1
-  local bad; bad=$(grep -v '^#' "$cf" | grep . | awk -F'\t' 'NF != 2' | wc -l)
+  local bad; bad=$(grep -v '^#' "$cf" | grep . | awk -F'\t' 'NF != 2' | wc -l | tr -d ' ')
   assert_eq "$bad" "0" "linhas de commands.tsv sem 2 colunas" || return 1
   for id in claude-code gemini-cli opencode continue; do
     grep -v '^#' "$tf" | grep . | cut -f1 | grep -qxF "$id" || fail "command_targets.tsv sem $id" || return 1
   done
-  bad=$(grep -v '^#' "$tf" | grep . | awk -F'\t' 'NF != 4' | wc -l)
+  bad=$(grep -v '^#' "$tf" | grep . | awk -F'\t' 'NF != 4' | wc -l | tr -d ' ')
   assert_eq "$bad" "0" "linhas de command_targets.tsv sem 4 colunas"
 }
 
@@ -230,7 +230,7 @@ test_install_commands() {
   "$CLI" install claude-code >/dev/null || fail "install falhou" || return 1
   assert_file "$HOME/.claude/commands/adr-std-create.md" || return 1
   assert_file "$HOME/.claude/commands/adr-std-list.md" || return 1
-  local n; n=$(find "$HOME/.claude/commands" -name 'adr-std-*.md' | wc -l)
+  local n; n=$(find "$HOME/.claude/commands" -name 'adr-std-*.md' | wc -l | tr -d ' ')
   assert_eq "$n" "10" "arquivos de comando criados" || return 1
   # shellcheck disable=SC2016 # literal $ARGUMENTS esperado no arquivo, não expansão
   assert_contains "$(cat "$HOME/.claude/commands/adr-std-create.md")" '$ARGUMENTS' || return 1
@@ -450,7 +450,7 @@ test_gate_blocks_big_file() {
 
 test_gate_checks_skill_name() {
   gate_copy
-  sed -i 's/^name: adr-std$/name: outro-nome/' repo/skill/SKILL.md
+  sed -i.bak 's/^name: adr-std$/name: outro-nome/' repo/skill/SKILL.md && rm -f repo/skill/SKILL.md.bak
   local out; out="$( cd repo && bash tests/gate.sh static 2>&1 )" && fail "gate deveria falhar com name diferente" && return 1
   assert_contains "$out" "name"
 }
@@ -545,7 +545,7 @@ test_launch_table() {
   local rows bad id
   rows=$(grep -v '^#' "$f" | grep -c .)
   assert_eq "$rows" "4" "agentes que abrem pelo terminal" || return 1
-  bad=$(grep -v '^#' "$f" | grep . | awk -F'\t' 'NF != 3' | wc -l)
+  bad=$(grep -v '^#' "$f" | grep . | awk -F'\t' 'NF != 3' | wc -l | tr -d ' ')
   assert_eq "$bad" "0" "linhas sem 3 colunas" || return 1
   while IFS= read -r id; do
     grep -v '^#' "$ROOT/agents.tsv" | cut -f1 | grep -qxF "$id" || fail "agente fora do agents.tsv: $id" || return 1
@@ -558,7 +558,7 @@ test_config_agent() {
   assert_contains "$out" "nenhum agente padrão" || return 1
   "$CLI" config agent codex >/dev/null || fail "definir falhou" || return 1
   out="$("$CLI" config agent)"; assert_contains "$out" "codex" || return 1
-  assert_eq "$(grep -P '^default_agent\t' "$(state_file)" | cut -f2)" "codex" "estado" || return 1
+  assert_eq "$(awk -F'\t' '$1=="default_agent"{print $2}' "$(state_file)")" "codex" "estado" || return 1
   "$CLI" config agent --unset >/dev/null || return 1
   out="$("$CLI" config agent)"; assert_contains "$out" "nenhum agente padrão" || return 1
   out="$("$CLI" config agent cursor 2>&1)"; code=$?
@@ -586,7 +586,7 @@ test_config_path() {
   # config path (arquivo config) e config agent (arquivo state) não interferem um no outro
   "$CLI" config agent codex >/dev/null || return 1
   "$CLI" config path docs/decisoes >/dev/null || return 1
-  assert_eq "$(grep -P '^default_agent\t' "$(state_file)" | cut -f2)" "codex" "default_agent preservado" || return 1
+  assert_eq "$(awk -F'\t' '$1=="default_agent"{print $2}' "$(state_file)")" "codex" "default_agent preservado" || return 1
   assert_eq "$("$CLI" config path)" "pasta de ADRs: docs/decisoes" "path preservado após config agent" || return 1
   # remover
   "$CLI" config path --unset >/dev/null || return 1
@@ -677,7 +677,7 @@ test_converse_menu_last_used() {
   assert_contains "$out" "1) claude-code" || return 1
   assert_contains "$out" "2) codex" || return 1
   assert_eq "$(head -1 fake.log)" "codex" "escolha 2" || return 1
-  assert_eq "$(grep -P '^last_agent\t' "$(state_file)" | cut -f2)" "codex" "último usado" || return 1
+  assert_eq "$(awk -F'\t' '$1=="last_agent"{print $2}' "$(state_file)")" "codex" "último usado" || return 1
   rm fake.log
   printf '\n' > answer
   out="$(ADR_STD_TTY="$PWD/answer" cv audit)" || return 1
