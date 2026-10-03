@@ -3,10 +3,10 @@
 | Campo | Valor |
 |---|---|
 | **ID** | ADR-4 |
-| **Status** | Proposto |
+| **Status** | Aceito |
 | **Data da decisão** | 2026-10-03 |
-| **Aprovado em** | pendente |
-| **Modificado em** | — |
+| **Aprovado em** | 2026-10-03 |
+| **Modificado em** | 2026-10-03 |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill |
@@ -107,6 +107,7 @@ Não decide a política de ordenação visual fora das ferramentas da skill (por
 |---|---|---|
 | 2026-10-03 | Criação (Status: Proposto) | Diego |
 | 2026-10-03 | Inclui o script de migração executado pelo `adr-std update` (regras 3 a 5) | Diego |
+| 2026-10-03 | Aprovação (Status: Aceito) | Diego |
 
 ## Referências
 
