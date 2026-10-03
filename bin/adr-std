@@ -296,7 +296,7 @@ choose_agents() {
       die 2 "escolha inválida: $tok"
     fi
   done
-  [ ${#AGENTS[@]} -gt 0 ] || die 3 "nenhum agente escolhido"
+  [ ${#AGENTS[@]} -gt 0 ] || die 3 "nenhum agente escolhido. Indique os agentes com --agent (ex.: --agent claude-code) ou use --all"
 }
 
 install_commands() { # instala os arquivos de comando de ação para os AGENTS selecionados
