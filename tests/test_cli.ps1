@@ -59,8 +59,14 @@ Describe 'version, help e agents' {
     }
     It 'help lista os comandos e comando inválido falha' {
         $r = Invoke-Cli @('help')
-        foreach ($c in 'install', 'update', 'uninstall', 'self-uninstall', 'status', 'agents', 'check', 'new', 'list', 'link', 'organize', 'create', 'supersede', 'review', 'audit', 'ask', 'config', 'version') { $r.Output | Should -Match $c }
+        foreach ($c in 'install', 'update', 'uninstall', 'self-uninstall', 'status', 'agents', 'check', 'new', 'list', 'link', 'organize', 'migrate', 'create', 'supersede', 'review', 'audit', 'ask', 'config', 'version') { $r.Output | Should -Match $c }
         (Invoke-Cli @('comando-inexistente')).Code | Should -Be 2
+    }
+    It 'help descreve migrate com --apply e --exclude' {
+        $r = Invoke-Cli @('help')
+        $line = ($r.Output -split "`n" | Where-Object { $_ -match '^\s+migrate\b' }) -join ' '
+        $line | Should -Match '--apply'
+        $line | Should -Match '--exclude'
     }
     It 'agents marca os agentes encontrados' {
         New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude'), (Join-Path $HomeDir '.codex') | Out-Null
@@ -216,7 +222,7 @@ Describe 'new, list, link e organize (v1.2)' -Skip:(-not (Get-Command python -Er
         $dir = Join-Path $Tmp 'adrs'
         $r = Invoke-Cli @('new', 'Usar fila', '--path', $dir)
         $r.Code | Should -Be 0
-        Test-Path (Join-Path $dir '0001-usar-fila.md') | Should -BeTrue
+        Test-Path (Join-Path $dir '1-usar-fila.md') | Should -BeTrue
         $l = Invoke-Cli @('list', '--path', $dir)
         $l.Output | Should -Match 'Usar fila'
         $l.Output | Should -Match 'Proposto'
@@ -225,10 +231,156 @@ Describe 'new, list, link e organize (v1.2)' -Skip:(-not (Get-Command python -Er
         $dir = Join-Path $Tmp 'adrs'
         Invoke-Cli @('new', 'Um', '--path', $dir) | Out-Null
         Invoke-Cli @('new', 'Dois', '--path', $dir) | Out-Null
-        (Invoke-Cli @('link', 'ADR-0001', 'restringe', 'ADR-0002', '--path', $dir)).Code | Should -Be 0
-        Get-Content -Raw -Encoding UTF8 (Join-Path $dir '0002-dois.md') | Should -Match 'é restringido por ADR-0001'
-        Rename-Item (Join-Path $dir '0002-dois.md') '0005-dois.md'
-        (Invoke-Cli @('organize', '--dry-run', '--path', $dir)).Output | Should -Match '0005-dois.md -> 0002-dois.md'
+        (Invoke-Cli @('link', 'ADR-1', 'restringe', 'ADR-2', '--path', $dir)).Code | Should -Be 0
+        Get-Content -Raw -Encoding UTF8 (Join-Path $dir '2-dois.md') | Should -Match 'é restringido por ADR-1'
+        Rename-Item (Join-Path $dir '2-dois.md') '5-dois.md'
+        (Invoke-Cli @('organize', '--dry-run', '--path', $dir)).Output | Should -Match '5-dois.md -> 2-dois.md'
+    }
+}
+
+Describe 'migrate (v2.0)' {
+    BeforeEach {
+        $script:Proj = Join-Path $Tmp 'proj'
+        $script:AdrDir = Join-Path $Proj 'docs/architecture/ADR'
+        New-Item -ItemType Directory -Force -Path $AdrDir | Out-Null
+        Set-Content -Path (Join-Path $AdrDir '0001-a.md') -Value '# ADR-0001: A'
+        Set-Content -Path (Join-Path $Proj 'README.md') -Value 'Veja [A](docs/architecture/ADR/0001-a.md).'
+    }
+    It 'sem --apply mostra o plano e não altera arquivo' -Skip:(-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
+        $r = Invoke-Cli @('migrate', '--root', $Proj)
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match '0001-a.md'
+        $r.Output | Should -Match '1-a.md'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+        Test-Path (Join-Path $AdrDir '1-a.md') | Should -BeFalse
+        Get-Content -Raw (Join-Path $Proj 'README.md') | Should -Match '0001-a.md'
+    }
+    It '--apply renomeia o ADR e corrige o link do README' -Skip:(-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
+        $r = Invoke-Cli @('migrate', '--apply', '--root', $Proj)
+        $r.Code | Should -Be 0
+        Test-Path (Join-Path $AdrDir '1-a.md') | Should -BeTrue
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeFalse
+        Get-Content -Raw (Join-Path $Proj 'README.md') | Should -Match 'docs/architecture/ADR/1-a.md'
+    }
+    It 'sem Python 3 sai com código 6 e indica o checklist' {
+        $psPath = (Get-Command $script:Ps).Source
+        $oldPath = $env:PATH
+        try {
+            $env:PATH = Split-Path -Parent $psPath
+            $hasPython = [bool](Get-Command python3 -ErrorAction SilentlyContinue) -or [bool](Get-Command python -ErrorAction SilentlyContinue) -or [bool](Get-Command py -ErrorAction SilentlyContinue)
+            if ($hasPython) { Set-ItResult -Skipped -Because 'Python 3 está na mesma pasta do PowerShell'; return }
+            $out = & $psPath -NoProfile -ExecutionPolicy Bypass -File $script:Cli 'migrate' 2>&1 | Out-String
+            $code = $LASTEXITCODE
+        } finally { $env:PATH = $oldPath }
+        $code | Should -Be 6
+        $out | Should -Match 'Python'
+        $out | Should -Match 'checklist'
+    }
+}
+
+Describe 'update (v2.0): gancho de migração' {
+    # O instalador instalado (local/adr-std/install.ps1) é trocado por um falso; o gancho roda o
+    # migrate_numbering.py real da fonte. Espelha tests/test_cli.sh (update_*); Pester não executado
+    # no ambiente de desenvolvimento (pwsh indisponível): validar no CI do Windows.
+    BeforeAll {
+        $script:HasPython = [bool](Get-Command python -ErrorAction SilentlyContinue) -or [bool](Get-Command python3 -ErrorAction SilentlyContinue) -or [bool](Get-Command py -ErrorAction SilentlyContinue)
+        function Invoke-UpdateIn {
+            param([string[]]$UpdateArgs = @(), [string]$Answer = $null, [string]$WorkDir)
+            Push-Location $WorkDir
+            try { $r = Invoke-Cli (@('update') + $UpdateArgs) $Answer } finally { Pop-Location }
+            $r
+        }
+    }
+    BeforeEach {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        Invoke-Installer @('--agent', 'claude-code') | Out-Null
+        $script:Stub = Join-Path $Tmp 'local/adr-std/install.ps1'
+        Set-Content -Path $Stub -Value 'exit 0'
+        $script:Proj = Join-Path $Tmp 'proj'
+        $script:AdrDir = Join-Path $Proj 'docs/architecture/ADR'
+        New-Item -ItemType Directory -Force -Path $AdrDir | Out-Null
+        Set-Content -Path (Join-Path $AdrDir '0001-a.md') -Value '# ADR-0001: A'
+        Set-Content -Path (Join-Path $Proj 'README.md') -Value 'Veja [A](docs/architecture/ADR/0001-a.md).'
+    }
+    It 'sem terminal imprime o plano e adr-std migrate --apply sem alterar arquivo' -Skip:(-not $HasPython) {
+        $r = Invoke-UpdateIn -WorkDir $Proj
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match '0001-a.md'
+        $r.Output | Should -Match '1-a.md'
+        $r.Output | Should -Match 'adr-std migrate --apply'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+        Test-Path (Join-Path $AdrDir '1-a.md') | Should -BeFalse
+    }
+    It 'com terminal e resposta s aplica a migração' -Skip:(-not $HasPython) {
+        $r = Invoke-UpdateIn -WorkDir $Proj -Answer 's'
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match 'Aplicar a migração\? \[s/N\]'
+        Test-Path (Join-Path $AdrDir '1-a.md') | Should -BeTrue
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeFalse
+        Get-Content -Raw (Join-Path $Proj 'README.md') | Should -Match 'docs/architecture/ADR/1-a.md'
+    }
+    It 'resposta n, vazia ou outra não aplica' -Skip:(-not $HasPython) {
+        foreach ($a in 'n', '', 'talvez') {
+            $r = Invoke-UpdateIn -WorkDir $Proj -Answer $a
+            $r.Code | Should -Be 0
+            $r.Output | Should -Match 'Aplicar a migração\? \[s/N\]'
+            Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+            Test-Path (Join-Path $AdrDir '1-a.md') | Should -BeFalse
+        }
+    }
+    It '--no-migrate não calcula nem mostra o plano' -Skip:(-not $HasPython) {
+        $r = Invoke-UpdateIn -UpdateArgs @('--no-migrate') -WorkDir $Proj -Answer 's'
+        $r.Code | Should -Be 0
+        $r.Output | Should -Not -Match 'plano de migração|migração: nada a fazer|Aplicar a migração'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+    }
+    It '--dry-run não migra' -Skip:(-not $HasPython) {
+        $r = Invoke-UpdateIn -UpdateArgs @('--dry-run') -WorkDir $Proj -Answer 's'
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match 'simulação'
+        $r.Output | Should -Not -Match 'plano de migração|migração: nada a fazer'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+    }
+    It 'projeto com numbering: padded ou sem pasta de ADRs só diz nada a fazer' -Skip:(-not $HasPython) {
+        Set-Content -Path (Join-Path $Proj '.adr-std') -Value 'numbering: padded'
+        $r = Invoke-UpdateIn -WorkDir $Proj
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match 'migração: nada a fazer'
+        $r.Output | Should -Not -Match 'plano de migração'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+        $empty = Join-Path $Tmp 'empty'
+        New-Item -ItemType Directory -Force -Path $empty | Out-Null
+        $r = Invoke-UpdateIn -WorkDir $empty
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match 'migração: nada a fazer'
+        $r.Output | Should -Not -Match 'plano de migração'
+    }
+    It 'sem Python 3 avisa e o update mantém o código 0' {
+        $psPath = (Get-Command $script:Ps).Source
+        $oldPath = $env:PATH
+        try {
+            $env:PATH = Split-Path -Parent $psPath
+            $hasPy = [bool](Get-Command python3 -ErrorAction SilentlyContinue) -or [bool](Get-Command python -ErrorAction SilentlyContinue) -or [bool](Get-Command py -ErrorAction SilentlyContinue)
+            if ($hasPy) { Set-ItResult -Skipped -Because 'Python 3 está na mesma pasta do PowerShell'; return }
+            Push-Location $Proj
+            try { $out = & $psPath -NoProfile -ExecutionPolicy Bypass -File $script:Cli 'update' 2>&1 | Out-String; $code = $LASTEXITCODE } finally { Pop-Location }
+        } finally { $env:PATH = $oldPath }
+        $code | Should -Be 0
+        $out | Should -Match 'aviso'
+        $out | Should -Match 'Python'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+    }
+    It 'falha do instalador mantém o código e não dispara a migração' -Skip:(-not $HasPython) {
+        Set-Content -Path $Stub -Value 'exit 5'
+        $r = Invoke-UpdateIn -WorkDir $Proj -Answer 's'
+        $r.Code | Should -Be 5
+        $r.Output | Should -Not -Match 'plano de migração|migração: nada a fazer|Aplicar a migração'
+        Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
+    }
+    It 'help lista update --no-migrate' {
+        $r = Invoke-Cli @('help')
+        $r.Output | Should -Match '--no-migrate'
+        $r.Output | Should -Match 'plano de migração'
     }
 }
 
@@ -390,7 +542,7 @@ Describe 'instalador copia agent_launch.tsv' {
 
 Describe 'check' {
     It 'passa na fixture e falha no template (precisa de Python 3)' -Skip:(-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
-        (Invoke-Cli @('check', (Join-Path $Root 'tests/fixtures/0001-cache-de-sessao-em-redis.md'))).Code | Should -Be 0
+        (Invoke-Cli @('check', (Join-Path $Root 'tests/fixtures/1-cache-de-sessao-em-redis.md'))).Code | Should -Be 0
         (Invoke-Cli @('check', (Join-Path $Root 'skill/references/template-madr.md'))).Code | Should -Not -Be 0
     }
 }

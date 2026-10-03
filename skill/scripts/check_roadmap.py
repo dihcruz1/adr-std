@@ -6,11 +6,16 @@ ROADMAP, valores válidos de Status e a heurística de Status das Specs
 referenciadas. Não escreve nada — só confere e reporta.
 
 Uso:
-    python3 check_roadmap.py <pasta-de-ADRs>
+    python3 check_roadmap.py <pasta-de-ADRs> [--name-pattern REGEX]
+
+Opções:
+    --name-pattern REGEX  padrão do nome de arquivo dos ADRs
+                          (padrão: o de check_adr.DEFAULT_NAME_PATTERN)
 
 Saída (código):
     0  nenhuma divergência encontrada
     1  ao menos uma divergência encontrada
+    2  --name-pattern inválido
 """
 
 from __future__ import annotations
@@ -19,6 +24,9 @@ import argparse
 import re
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_adr import DEFAULT_NAME_PATTERN  # noqa: E402
 
 VALID_STATUSES = {"Não iniciada", "Só requisitos", "Em andamento", "Concluída"}
 EXPECTED_HEADER_COLUMNS = [
@@ -29,7 +37,6 @@ EXPECTED_HEADER_COLUMNS = [
     "Status",
     "Evidência / Validação",
 ]
-ADR_FILENAME = re.compile(r"^\d{4}-.+\.md$")
 TABLE_ROW = re.compile(r"^\|(.+)\|\s*$")
 TASK_LINE = re.compile(r"^- \[([ x])\]\s+\S")
 
@@ -73,7 +80,7 @@ def expected_status(spec_dir: Path) -> str | None:
     return "Em andamento" if pending else "Concluída"
 
 
-def check(adr_dir: Path) -> list[str]:
+def check(adr_dir: Path, name_pattern: re.Pattern[str]) -> list[str]:
     failures: list[str] = []
     roadmap_path = adr_dir / "ROADMAP.md"
     if not roadmap_path.exists():
@@ -97,7 +104,7 @@ def check(adr_dir: Path) -> list[str]:
             failures.append(f"Status inválido na linha '{row[0]}': '{status}'")
 
     for adr_file in sorted(adr_dir.glob("*.md")):
-        if adr_file.name == "ROADMAP.md" or not ADR_FILENAME.match(adr_file.name):
+        if adr_file.name == "ROADMAP.md" or not name_pattern.match(adr_file.name):
             continue
         if adr_file.name not in adr_base_cells:
             failures.append(f"{adr_file.name} não tem linha na tabela do ROADMAP (coluna ADR Base)")
@@ -128,9 +135,20 @@ def check(adr_dir: Path) -> list[str]:
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("adr_dir", help="pasta com o ROADMAP.md e os ADRs")
+    ap.add_argument(
+        "--name-pattern",
+        default=DEFAULT_NAME_PATTERN,
+        help="regex do nome de arquivo dos ADRs (padrão: o de check_adr)",
+    )
     args = ap.parse_args()
 
-    failures = check(Path(args.adr_dir))
+    try:
+        name_pattern = re.compile(args.name_pattern)
+    except re.error as exc:
+        print(f"check_roadmap: --name-pattern inválido: {exc}", file=sys.stderr)
+        return 2
+
+    failures = check(Path(args.adr_dir), name_pattern)
     if not failures:
         print("[OK] ROADMAP consistente")
         return 0

@@ -203,6 +203,7 @@ ALL=0
 LINK=0
 DRY=0
 NO_COMMANDS=0
+NO_MIGRATE=0
 REQ_VERSION=""
 
 parse_args() {
@@ -216,6 +217,7 @@ parse_args() {
       --link)    LINK=1 ;;
       --dry-run) DRY=1 ;;
       --no-commands) NO_COMMANDS=1 ;;
+      --no-migrate)  NO_MIGRATE=1 ;;
       --version) REQ_VERSION="${1:-}"; [ $# -gt 0 ] && shift ;;
       --*)       die 2 "opção desconhecida: $tok" ;;
       *)
@@ -415,7 +417,57 @@ cmd_update() {
     echo "  (simulação) atualizaria ${REQ_VERSION:-para a última versão} nos agentes: ${ids[*]}"
     return 0
   fi
-  ADR_STD_REMOTE=1 bash "$installer" "${opts[@]+"${opts[@]}"}" --agent "${ids[@]}"
+  local rc=0
+  ADR_STD_REMOTE=1 bash "$installer" "${opts[@]+"${opts[@]}"}" --agent "${ids[@]}" || rc=$?
+  [ "$rc" -eq 0 ] || return "$rc"
+  [ "$NO_MIGRATE" -eq 1 ] || maybe_migrate
+  return 0
+}
+
+# Lê uma linha do terminal (mesma regra do menu: ADR_STD_TTY ou /dev/tty) para REPLY_LINE.
+# Sem terminal: retorna 1. EOF sem resposta: REPLY_LINE vazio.
+read_tty_line() { # prompt
+  local tty="${ADR_STD_TTY:-/dev/tty}"
+  { exec 3<"$tty"; } 2>/dev/null || return 1
+  printf '%s' "$1"
+  REPLY_LINE=""
+  IFS= read -r REPLY_LINE <&3 || REPLY_LINE=""
+  exec 3<&-
+  echo
+}
+
+# Gancho do update (v2.0): mostra o plano de migração dos ADRs do diretório atual e só aplica com
+# confirmação interativa (SEG-06). Qualquer falha vira aviso e não altera o código de saída do update.
+maybe_migrate() {
+  local out code=0
+  # subshell: run_python_script usa die (exit) e não pode encerrar o update
+  out="$( ( run_python_script migrate_numbering.py migrate ) 2>&1 )" || code=$?
+  if [ "$code" -ne 0 ]; then
+    echo "aviso: a skill foi atualizada, mas não foi possível calcular o plano de migração (código $code):"
+    printf '%s\n' "$out"
+    echo "Quando puder, rode: adr-std migrate"
+    return 0
+  fi
+  if ! printf '%s\n' "$out" | head -1 | grep -qF "plano de migração"; then
+    echo "migração: nada a fazer"
+    return 0
+  fi
+  printf '%s\n' "$out"
+  REPLY_LINE=""
+  if ! read_tty_line "Aplicar a migração? [s/N] "; then
+    echo "adr-std migrate --apply"
+    return 0
+  fi
+  case "$REPLY_LINE" in
+    s|S)
+      code=0
+      out="$( ( run_python_script migrate_numbering.py migrate --apply ) 2>&1 )" || code=$?
+      printf '%s\n' "$out"
+      [ "$code" -eq 0 ] || echo "aviso: a migração não foi concluída (código $code); a skill continua atualizada. Veja a mensagem acima e rode: adr-std migrate"
+      ;;
+    *) echo "Migração não aplicada. Para aplicar depois: adr-std migrate --apply" ;;
+  esac
+  return 0
 }
 
 cmd_self_uninstall() {
@@ -475,6 +527,11 @@ cmd_check() {
 cmd_mechanical() { # comando args...
   local cmd="$1"; shift
   run_python_script adr_cli.py "$cmd" "$cmd" "$@"
+}
+
+# migrate: lógica em skill/scripts/migrate_numbering.py (plano por omissão; --apply aplica)
+cmd_migrate() {
+  run_python_script migrate_numbering.py migrate "$@"
 }
 
 # --- comandos de conversa (v1.3): abrem um agente com a skill ----------------------
@@ -664,6 +721,8 @@ Comandos:
       --dry-run          Mostra o que faria, sem alterar nada
       --version vX.Y.Z   Versão específica
   update                 Atualiza nos agentes já registrados (--agent inclui mais agentes)
+      --no-migrate       Não calcula nem mostra o plano de migração dos ADRs (por omissão o update mostra o plano
+                         no diretório atual e só aplica com sua confirmação em terminal)
   uninstall [agentes...] Remove a skill (sem agentes: de todos)
   self-uninstall         Remove tudo, inclusive este comando
   status                 Versão, agentes, integridade e se há versão nova
@@ -674,6 +733,8 @@ Comandos:
   link <A> <tipo> <B>    Registra uma relação entre dois ADRs, nos dois lados (Python 3)
   organize --dry-run     Mostra o plano de renumeração, sem alterar nada (Python 3)
                          (new, list, link e organize aceitam --path PASTA e --name-pattern REGEX)
+  migrate [--apply]      Migra ADRs com zeros à esquerda (0001-x.md) para o padrão sem zeros; só mostra o plano sem --apply (Python 3)
+                         (aceita --path PASTA, --root RAIZ e --exclude GLOB, repetível, para proteger arquivos)
   create [agente] <descrição>   Abre um agente para criar um ADR em conversa (aceita --ask N e --quick)
   supersede [agente] <ADR>      Abre um agente para criar o ADR que substitui outro (aceita --ask N e --quick)
   review [agente] <pasta>       Abre um agente para revisar ADRs
@@ -714,6 +775,7 @@ main() {
     status)               cmd_status ;;
     check)                cmd_check "$@" ;;
     new|list|link|organize) cmd_mechanical "$cmd" "$@" ;;
+    migrate)              cmd_migrate "$@" ;;
     create|supersede|review|audit|ask) cmd_converse "$cmd" "$@" ;;
     config)               cmd_config "$@" ;;
     self-uninstall)       cmd_self_uninstall "$@" ;;
@@ -722,4 +784,4 @@ main() {
   esac
 }
 
-main "$@"
+main "$@"; exit $?  # exit na mesma linha: o update pode trocar este arquivo enquanto roda

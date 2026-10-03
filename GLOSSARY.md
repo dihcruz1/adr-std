@@ -17,13 +17,17 @@ Linguagem Ubíqua do projeto. Termos consolidados das specs em `docs/specs/`; em
 | **Comando de ação** | Arquivo pequeno em um agente que chama a skill `adr-std` com uma ação definida (`/adr-std-<ação>`). |
 | **Comando de conversa** | `create`, `supersede`, `review`, `audit` e `ask` rodados no terminal; abrem um agente. |
 | **Config global** | `~/.config/adr-std/config` (Linux/macOS) ou `%APPDATA%\adr-std\config` (Windows), compartilhado com o estado da skill. |
+| **Convenção do projeto** | Regra de numeração/nome declarada em `--name-pattern`, `.adr-std`, `CONVENTIONS.md` ou `AGENTS.md`; prevalece sobre o padrão (zeros à esquerda só por ela; no script, `numbering: padded`). |
 | **Esqueleto** | ADR criado por `new`: seções do template com `pendente`. |
 | **Estado** | Arquivo que registra versão, agentes e pastas instaladas. |
 | **Etapa** | Passo de implementação previsto em um ADR, rastreado em `docs/architecture/ADR/ROADMAP.md` (distinta de **Versão**). |
 | **Instalador** | `install.sh` ou `install.ps1`: coloca o comando `adr-std` no computador e chama `adr-std install`. |
-| **Pasta de ADRs** | Diretório dos arquivos `NNNN-<slug>.md`; padrão `docs/architecture/ADR/`. |
+| **Migração** | Renomeação dos ADRs com zeros à esquerda para o padrão sem zeros, mantendo o número (`adr-std migrate`; `update` a executa). |
+| **Número do ADR** | Inteiro positivo sem zeros à esquerda que identifica o ADR (`ADR-<N>`, arquivo `<N>-<slug>.md`); nunca reutilizado. |
+| **Pasta de ADRs** | Diretório dos arquivos `<N>-<slug>.md`; padrão `docs/architecture/ADR/`. |
 | **Pedido inicial** | Texto `Use a skill adr-std, ação "<ação>", com estes argumentos: <args>` entregue ao agente. |
 | **Pendente** | Campo do ADR que o usuário não informou; nunca é preenchido por invenção. |
+| **Plano de migração** | Lista das renomeações (`0005-x.md` → `5-x.md`) e dos links a corrigir, mostrada antes de aplicar; sem `--apply`, é só o que o `adr-std migrate` imprime. |
 | **Precedência de caminho (ADR-0001)** | `--path` > `.adr-std` > config global > `docs/architecture/ADR/`. |
 | **Relação recíproca** | Registro do mesmo vínculo nos dois ADRs, com o tipo inverso. |
 | **Release** | Versão publicada no GitHub com `adr-std.zip` e `adr-std.zip.sha256`. |

@@ -16,7 +16,6 @@ Este documento acompanha a transição das decisões arquiteturais em etapas de 
 | **1** | Caminho padrão dos ADRs e personalização por projeto e globalmente | [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) | [spec](../../specs/2026-10-01-adr-0001-caminho-dos-adrs/requirements.md) | Concluída | `SKILL.md` já traz a hierarquia; `tests/test_check_adr.py` (13/13) cobre texto e `check_adr.py` com pasta custom |
 | **2** | ROADMAP.md como documento central de rastreabilidade de etapas e specs | [ADR-0002](0002-roadmap-rastreabilidade-etapas-specs.md) | [spec](../../specs/2026-10-01-adr-0002-roadmap-rastreabilidade/requirements.md) | Concluída | `skill/scripts/check_roadmap.py` + `tests/test_check_roadmap.py` (9/9); rodado contra este ROADMAP: `[OK] ROADMAP consistente` |
 | **3** | Atualização automática e silenciosa do ROADMAP pelo agente | [ADR-0003](0003-atualizacao-automatica-do-roadmap-pelo-agente.md) | [spec](../../specs/2026-10-01-adr-0003-roadmap-automatico/requirements.md) | Concluída | `SKILL.md` instrui a regra; `check_roadmap.py` confere a heurística de Status (`tests/test_check_roadmap.py`, casos de divergência) |
-
 | **4** | Numeração dos ADRs sem zeros à esquerda (`1-titulo.md`, `ADR-1`) | [ADR-4](4-numeracao-dos-adrs-sem-zeros-a-esquerda.md) | — | Não iniciada | ADR proposto; spec ainda não aberta |
 
 ---

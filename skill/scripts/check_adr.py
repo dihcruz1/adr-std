@@ -21,10 +21,10 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
-DEFAULT_NAME_PATTERN = r"^(\d{4})-[a-z0-9]+(?:-[a-z0-9]+)*\.md$"
+DEFAULT_NAME_PATTERN = r"^([1-9]\d*)-[a-z0-9]+(?:-[a-z0-9]+)*\.md$"
 DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 STATUS = re.compile(
-    r"^(Proposto|Aceito|Rejeitado|Obsoleto|Substituído por ADR-\d{4})$"
+    r"^(Proposto|Aceito|Rejeitado|Obsoleto|Substituído por ADR-\d+)$"
 )
 HEADER_ROW = re.compile(r"^\|\s*\*\*(.+?)\*\*\s*\|\s*(.*?)\s*\|\s*$")
 SECTION = re.compile(r"^##\s+(.+?)\s*$")

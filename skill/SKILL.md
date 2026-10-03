@@ -72,7 +72,7 @@ de `/adr-std <texto livre>`.
 8. Nunca invente decisores, datas, alternativas ou justificativas; o que faltar fica `pendente`.
 9. Status inicial sempre `Proposto`; só o decisor aprova.
 10. `supersede` segue este mesmo fluxo e estas mesmas opções, além de: marcar o ADR antigo como
-    `Substituído por ADR-NNNN`, atualizar "Modificado em" do antigo, e nunca apagar o ADR antigo.
+    `Substituído por ADR-N`, atualizar "Modificado em" do antigo, e nunca apagar o ADR antigo.
 
 ### `new` (esqueleto sem perguntas)
 
@@ -94,11 +94,13 @@ ADRs, diga isso e não crie a pasta.
 1. Aplique os critérios de decisão essencial (guia, seção 7.2). Se nenhum se aplicar, avise.
 2. Confirme que é **uma** decisão. Duas decisões viram dois ADRs relacionados.
 3. Leia os ADRs existentes para achar relações e evitar duplicata.
-4. Descubra o próximo número pela convenção do projeto; na falta dela, `NNNN-` com 4 dígitos
-   (o maior número existente + 1; nunca reutilize número).
+4. Descubra o próximo número pela convenção do projeto; na falta dela, o maior número existente + 1
+   (comparação numérica), **sem zeros à esquerda** (`7`, não `0007`; nunca reutilize número). Zeros só por
+   convenção declarada (`--name-pattern`, `.adr-std`, `CONVENTIONS.md` ou `AGENTS.md`); com ADRs já
+   numerados com zeros, preserve a largura do maior.
 5. Pergunte ao usuário o que faltar: decisores, autoridade que aprova, data, concerns, stakeholders,
    alternativas reais e o motivo de cada rejeição. **Não invente.**
-6. Copie `references/template-madr.md` para `NNNN-<titulo-em-kebab-case>.md` e preencha.
+6. Copie `references/template-madr.md` para `<N>-<titulo-em-kebab-case>.md` e preencha. O ID interno é `ADR-<N>`, com o mesmo número do arquivo.
 7. Status inicial: `Proposto`. Só o decisor aprova; o agente nunca marca `Aceito` por conta própria.
 8. Rode a verificação (seção "Verificar") e corrija o que falhar.
 9. Mostre o resultado ao usuário com a lista do que ficou `pendente`.
@@ -113,7 +115,12 @@ Regras detalhadas: guia, seção 12.
    só execute com autorização.
 4. Mantenha relações recíprocas (se A substitui B, B fica `Substituído por ADR-A`).
 5. Tire o andamento de implementação do campo Status (ele descreve a decisão, não a execução).
-6. Entregue um relatório: o que mudou, o que falta, e a origem de cada exigência.
+6. Encontrou ADRs com zeros à esquerda (`0005-x.md`) e nenhuma convenção declarada com zeros? Ofereça
+   `adr-std migrate` (`0005-x.md` → `5-x.md`, mesmo número, links corrigidos): rode sem `--apply`, **mostre o plano**
+   e só aplique (`--apply`) com autorização; nunca renomeie por conta própria. O `adr-std update` também executa o
+   plano no projeto atual (`--no-migrate` pula). Projeto que mantém zeros declara `numbering: padded` no
+   `.adr-std` e não é migrado.
+7. Entregue um relatório: o que mudou, o que falta, e a origem de cada exigência.
 
 Regras detalhadas: guia, seção 13.
 
@@ -132,8 +139,8 @@ Se o agente puder executar código:
 
 ```bash
 python3 <pasta-da-skill>/scripts/check_adr.py <arquivo-ou-pasta-de-ADRs>
-# numeração diferente da padrão, por exemplo "1-titulo.md":
-python3 <pasta-da-skill>/scripts/check_adr.py <pasta> --name-pattern '^(\d+)-.+\.md$'
+# numeração diferente da padrão (convenção do projeto), por exemplo com 4 dígitos:
+python3 <pasta-da-skill>/scripts/check_adr.py <pasta> --name-pattern '^(\d{4})-.+\.md$'
 ```
 
 Saída: `0` passou; `1` falhou requisito da norma (N-DEVE); `2` falharam só recomendações ou regras
@@ -157,4 +164,4 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 | `references/template-madr.md` | Template do ADR, com os campos da 6.10 |
 | `references/checklist.md` | Checklist de conformidade, com a origem de cada item |
 | `scripts/check_adr.py` | Verificação automática dos itens `[auto]` (Python 3, só biblioteca padrão) |
-| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`); o agente não precisa dele, mas pode usá-lo |
+| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`, `migrate`); o agente não precisa dele, mas pode usá-lo |

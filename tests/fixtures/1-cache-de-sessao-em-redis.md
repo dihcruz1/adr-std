@@ -1,8 +1,8 @@
-# ADR-0001: Guardar a sessão de conversa em Redis
+# ADR-1: Guardar a sessão de conversa em Redis
 
 | Campo | Valor |
 |---|---|
-| **ID** | ADR-0001 |
+| **ID** | ADR-1 |
 | **Status** | Aceito |
 | **Data da decisão** | 2026-09-09 |
 | **Aprovado em** | 2026-09-10 |

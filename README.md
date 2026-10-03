@@ -69,8 +69,8 @@ Peça em linguagem natural; a skill é ativada pelo assunto do pedido. Exemplos:
 ```
 Crie um ADR para trocar o Redis por Memcached no cache de sessão. O motivo é o custo.
 Revise os ADRs da pasta docs/architecture/ADR contra a norma e me diga o que falta.
-Este ADR substitui o ADR-0003: crie o novo e marque o antigo como substituído.
-Registre que o ADR-0004 refina o ADR-0002.
+Este ADR substitui o ADR-3: crie o novo e marque o antigo como substituído.
+Registre que o ADR-4 refina o ADR-2.
 Audite a descrição de arquitetura do projeto contra a cláusula 6 da 42010.
 O que a norma diz sobre justificar uma decisão?
 ```
@@ -80,12 +80,14 @@ atual não existem comandos separados por ação; veja a [seção 13](#13-limita
 
 ## 4. O template do ADR
 
-Arquivo: `skill/references/template-madr.md`. Nome do arquivo do ADR: `NNNN-titulo-em-kebab-case.md` (4 dígitos). Se o
-seu projeto tiver outra convenção, ela prevalece.
+Arquivo: `skill/references/template-madr.md`. Nome do arquivo do ADR: `<N>-titulo-em-kebab-case.md`, com `N` inteiro positivo sem zeros à esquerda (`1-...md`, `12-...md`; ID `ADR-<N>`). A
+convenção do seu projeto tem prioridade: zeros à esquerda só quando ela os declara (`--name-pattern`, `.adr-std`,
+`CONVENTIONS.md`, `AGENTS.md`; para o script, `numbering: padded` no `.adr-std`). ADRs antigos com zeros (`0001-x.md`)
+migram com `adr-std migrate`.
 
 | Campo ou seção | O que registra |
 |---|---|
-| **ID, Status** | Identificação única; `Proposto`, `Aceito`, `Rejeitado`, `Substituído por ADR-NNNN` ou `Obsoleto` |
+| **ID, Status** | Identificação única; `Proposto`, `Aceito`, `Rejeitado`, `Substituído por ADR-N` ou `Obsoleto` |
 | **Data da decisão, Aprovado em, Modificado em** | Quando foi tomada, aprovada e alterada |
 | **Decisores, Autoridade que aprova** | Quem decidiu e quem aprova |
 | **Stakeholders afetados, Concerns e aspectos, Elementos afetados** | Quem e o que a decisão toca |
@@ -104,7 +106,7 @@ opções rejeitadas com motivo, instruções do template esquecidas). Precisa de
 
 ```bash
 adr-std check docs/architecture/ADR                         # uma pasta inteira
-adr-std check docs/architecture/ADR/0001-cache-de-sessao.md  # um arquivo
+adr-std check docs/architecture/ADR/1-cache-de-sessao.md  # um arquivo
 adr-std check docs/architecture/ADR --name-pattern '^(\d+)-.+\.md$'   # numeração diferente da padrão (ex.: 1-titulo.md)
 ```
 
@@ -251,7 +253,8 @@ adr-std install --all                    # todos os encontrados
 | `adr-std install --all` | Instala em todos os agentes encontrados |
 | `adr-std install --link` | Cria links para a pasta `skill/` do repositório, em vez de copiar (para quem desenvolve a skill) |
 | `adr-std install --dry-run` | Mostra o que faria, sem alterar nada |
-| `adr-std update` | Baixa a última versão, confere o checksum e reinstala nos agentes já registrados |
+| `adr-std update` | Baixa a última versão, confere o checksum e reinstala nos agentes já registrados; depois mostra o plano de migração dos ADRs do diretório atual e só aplica com a sua confirmação em terminal (sem terminal, imprime `adr-std migrate --apply`) |
+| `adr-std update --no-migrate` | Atualiza sem calcular nem mostrar o plano de migração (`--dry-run` também não migra) |
 | `adr-std update --version v1.0.0` | Instala uma versão específica |
 | `adr-std update --agent gemini-cli` | Atualiza e inclui mais um agente |
 | `adr-std uninstall [agentes...]` | Remove a skill de alguns agentes (sem agentes: de todos) |
@@ -263,10 +266,13 @@ adr-std install --all                    # todos os encontrados
 | `adr-std list` | Lista ID, status, data e título dos ADRs da pasta (Python 3) |
 | `adr-std link <ADR-A> <tipo> <ADR-B>` | Registra a relação nos dois ADRs, com o tipo inverso (Python 3) |
 | `adr-std organize --dry-run` | Mostra o plano de renumeração, sem alterar nada (Python 3) |
+| `adr-std migrate [--apply] [--exclude GLOB]` | Migra ADRs `0001-x.md` para `1-x.md`: sem `--apply` só mostra o plano; com `--apply` renomeia e corrige links (Python 3) |
 
 | `adr-std create\|supersede\|review\|audit\|ask [agente] [descrição]` | Abre um agente com a skill e o pedido inicial. `create` e `supersede` aceitam `--ask N` e `--quick` |
 | `adr-std config agent [nome]` | Mostra o agente padrão dos comandos acima; com `nome` define; `--unset` remove |
 | `adr-std config path [pasta]` | Mostra a pasta de ADRs da config global; com `pasta` define; `--unset` remove |
+
+> Nota: o primeiro `adr-std update` a partir da v1.4 usa o wrapper antigo e não executa a migração; rode `adr-std update` de novo ou `adr-std migrate`.
 
 `new`, `list`, `link` e `organize` aceitam `--path PASTA` e `--name-pattern REGEX`. Sem `--path`, a pasta vem de
 `.adr-std` (campo `path`), depois da config global e, por fim, `docs/architecture/ADR`. A config global
@@ -343,7 +349,12 @@ apaga a pasta `adr-std` do agente e copia a nova.
 
 ## 13. Limitações e próximas versões
 
-**Versão 1.4 (esta):** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
+**Versão 2.0 (esta):** numeração dos ADRs sem zeros à esquerda (`<N>-<slug>.md`, `ADR-<N>`), convenção do
+projeto como prioridade (`numbering: padded` para manter zeros), comando `adr-std migrate` (plano por omissão, `--apply`
+para aplicar), gancho do `adr-std update` (`--no-migrate` para pular) e `new`/`organize` com a largura da convenção.
+Quebra o padrão anterior de 4 dígitos; veja o `CHANGELOG.md`.
+
+**Versão 1.4:** skill, instalação em vários agentes, comandos de ação dentro do agente (v1.1) e o comando
 `adr-std` (`install`, `update`, `uninstall`, `self-uninstall`, `status`, `agents`, `check`, `new`, `list`, `link`,
 `organize --dry-run`, `create`, `supersede`, `review`, `audit`, `ask`, `config agent`, `config path`).
 

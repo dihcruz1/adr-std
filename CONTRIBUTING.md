@@ -40,7 +40,7 @@ Os testes nunca usam o seu `HOME`: cada um roda num diretório temporário. Os t
 
 - Instale com links para editar e ver o efeito na hora: `./install.sh --link --agent claude-code`. Antes, o instalador
   copia a fonte; use `adr-std install --link` para apontar para a pasta `skill/` do repositório.
-- Depois de mudar a skill, rode `python3 skill/scripts/check_adr.py tests/fixtures/0001-cache-de-sessao-em-redis.md`
+- Depois de mudar a skill, rode `python3 skill/scripts/check_adr.py tests/fixtures/1-cache-de-sessao-em-redis.md`
   (deve sair `0`) e os cenários de `tests/cenarios.md` em pelo menos dois agentes.
 - O guia (`skill/references/guia-42010.md`) é resumo com palavras próprias. **Não cole trechos da norma.** Cite a cláusula.
 

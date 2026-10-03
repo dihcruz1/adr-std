@@ -1,13 +1,13 @@
-# ADR-NNNN: <título curto da decisão>
+# ADR-N: <título curto da decisão>
 
 > Guia: template MADR estendido para cobrir a ISO/IEC/IEEE 42010:2022, cláusula 6.10.
-> Copie para `NNNN-<titulo-em-kebab-case>.md`. Remova todas as linhas `> Guia:` e os marcadores
+> Copie para `<N>-<titulo-em-kebab-case>.md` (`N` inteiro positivo, sem zeros à esquerda, salvo convenção declarada do projeto). Remova todas as linhas `> Guia:` e os marcadores
 > `<...>` antes de concluir. Os códigos I1 a I11 remetem à seção 7.3 do `guia-42010.md`.
 
 | Campo | Valor |
 |---|---|
-| **ID** | ADR-NNNN |
-| **Status** | Proposto · Aceito · Rejeitado · Substituído por ADR-NNNN · Obsoleto |
+| **ID** | ADR-N |
+| **Status** | Proposto · Aceito · Rejeitado · Substituído por ADR-N · Obsoleto |
 | **Data da decisão** | AAAA-MM-DD |
 | **Aprovado em** | AAAA-MM-DD · pendente |
 | **Modificado em** | AAAA-MM-DD · — |
@@ -16,7 +16,7 @@
 | **Stakeholders afetados** | <papéis, pessoas ou organizações afetados> |
 | **Concerns e aspectos** | <concerns (de preferência como perguntas) e aspectos a que a decisão se refere> |
 | **Elementos afetados** | <componentes, views, módulos, serviços, dados ou documentos afetados> |
-| **Relações com outras decisões** | <tipo + ADR, por exemplo: refina ADR-0002; conflita com ADR-0007; substitui ADR-0003> |
+| **Relações com outras decisões** | <tipo + ADR, por exemplo: refina ADR-2; conflita com ADR-7; substitui ADR-3> |
 
 > Guia: tipos de relação (42010:2022, 6.10.1): restringe, influencia, habilita, dispara, força,
 > engloba, refina, conflita com, expõe, é compatível com. Use também "substitui".
