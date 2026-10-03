@@ -41,7 +41,7 @@
 
 - [x] 4.1 — `VERSION` 1.2.0, `CHANGELOG`, README, SKILL.md (menção ao terminal), ROADMAP; depende de 3.1. Cobre RF-10.
   - **Validação:** `bash tests/gate.sh static`, `bash package.sh --release /tmp/adr-dist`
-  - **Evidência:** `VERSION` 1.2.0; `CHANGELOG`, README (seções 5, 6.5, 8, 13, 14), `SKILL.md` (tabela de arquivos) e os dois ROADMAPs atualizados. `bash tests/gate.sh static` e `tag v1.2.0` ok; `bash package.sh --release /tmp/adr-dist` gerou o zip 1.2.0; `check_roadmap.py docs/architecture/ADR` → `[OK] ROADMAP consistente`. Fora do escopo (registrado): `adr-std config path` (ADR-0001, etapa 2) e `organize` real.
+  - **Evidência:** `VERSION` 1.2.0; `CHANGELOG`, README (seções 5, 6.5, 8, 13, 14), `SKILL.md` (tabela de arquivos) e os dois ROADMAPs atualizados. `bash tests/gate.sh static` e `tag v1.2.0` ok; `bash package.sh --release /tmp/adr-dist` gerou o zip 1.2.0; `check_roadmap.py docs/architecture/ADR` → `[OK] ROADMAP consistente`. Fora do escopo (registrado): `adr-std config path` (ADR-1, etapa 2) e `organize` real.
 
 ## Auditoria cruzada 360° (Gate 3, 2026-10-01)
 
@@ -55,4 +55,4 @@
 | RF-10 (VERSION/CHANGELOG) | 4.1 |
 | R-01 a R-04 | testes de 1.1, 1.2, 2.2; R-05 permanece pendência externa (v1.0, 6.1) |
 
-Lacunas encontradas e resolvidas no Gate 3: (a) a posição da pasta mudou de posicional para `--path` (ADR-0001), registrado no design; (b) o instalador PowerShell também não copiava os `.tsv` da v1.1, incluído em 3.1; (c) `adr_cli.py` quebrava com ADR de arquivo vazio e aceitava título com quebra de linha, cobertos por SEG-03 e teste. Sem requisito órfão nem tarefa sem requisito. ADR: não aplicável (decisões já registradas em ADR-0001 e no ROADMAP; sem decisão arquitetural nova), portanto sem commit 1.
+Lacunas encontradas e resolvidas no Gate 3: (a) a posição da pasta mudou de posicional para `--path` (ADR-1), registrado no design; (b) o instalador PowerShell também não copiava os `.tsv` da v1.1, incluído em 3.1; (c) `adr_cli.py` quebrava com ADR de arquivo vazio e aceitava título com quebra de linha, cobertos por SEG-03 e teste. Sem requisito órfão nem tarefa sem requisito. ADR: não aplicável (decisões já registradas em ADR-1 e no ROADMAP; sem decisão arquitetural nova), portanto sem commit 1.

@@ -5,7 +5,7 @@
 | **Data** | 2026-10-01 |
 | **Status** | Gate 1 |
 | **Depende de** | v1.1 concluída ([spec](../2026-09-30-adr-std-v1-1-comandos-no-agente/)) |
-| **Contexto** | [ROADMAP.md](../../../ROADMAP.md), seção "v1.2"; ADR-0001 (caminho dos ADRs) |
+| **Contexto** | [ROADMAP.md](../../../ROADMAP.md), seção "v1.2"; ADR-1 (caminho dos ADRs) |
 
 ## 1. Contexto
 
@@ -22,7 +22,7 @@ comandos `bin/adr-std` e `bin/adr-std.ps1` só despacham.
 | D-02 | Python, reaproveitando `check_adr.py` por importação; sem Python o comando avisa e indica o checklist manual |
 | D-03 | `new` cria o arquivo vazio (próximo número, `Proposto`, campos `pendente`), sem perguntas |
 | D-04 | `organize` só em modo simulação (`--dry-run`) nesta versão; reorganização real fica para versão futura |
-| D-05 | Pasta dos ADRs: `--path` > `.adr-std` (`path`) > `~/.config/adr-std/config` (`path`) > `docs/architecture/ADR` (ADR-0001). O nível 3 (convenção em `CONVENTIONS.md`/`AGENTS.md`) é lido só pelo agente (texto livre, sem formato máquina) |
+| D-05 | Pasta dos ADRs: `--path` > `.adr-std` (`path`) > `~/.config/adr-std/config` (`path`) > `docs/architecture/ADR` (ADR-1). O nível 3 (convenção em `CONVENTIONS.md`/`AGENTS.md`) é lido só pelo agente (texto livre, sem formato máquina) |
 
 ## 3. Linguagem Ubíqua
 
@@ -71,9 +71,9 @@ Cenário: título malicioso não escapa da pasta
   Então o arquivo criado está dentro da pasta de ADRs
 
 Cenário: link é recíproco e preserva relações
-  Dado ADR-0001 com relação "refina ADR-0009"
-  Quando rodo "adr-std link ADR-0001 restringe ADR-0002"
-  Então 0001 tem "refina ADR-0009; restringe ADR-0002" e 0002 tem "é restringido por ADR-0001"
+  Dado ADR-1 com relação "refina ADR-0009"
+  Quando rodo "adr-std link ADR-1 restringe ADR-2"
+  Então 0001 tem "refina ADR-0009; restringe ADR-2" e 0002 tem "é restringido por ADR-1"
 
 Cenário: sem Python
   Dado um PATH sem python3
@@ -93,4 +93,4 @@ Cenário: sem Python
 
 ## 8. Fora do escopo
 
-`organize` real (renomeia arquivos), `adr-std config path` (ADR-0001 etapa 2; só leitura de `.adr-std`/config global aqui), nível 3 da hierarquia.
+`organize` real (renomeia arquivos), `adr-std config path` (ADR-1 etapa 2; só leitura de `.adr-std`/config global aqui), nível 3 da hierarquia.

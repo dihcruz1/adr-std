@@ -1,4 +1,4 @@
-# Design — Caminho padrão dos ADRs e personalização (ADR-0001)
+# Design — Caminho padrão dos ADRs e personalização (ADR-1)
 
 | Campo | Detalhe |
 |---|---|
@@ -7,7 +7,7 @@
 
 ## Contrato
 
-- `skill/SKILL.md`, seção "Convenções do projeto (ADR-0001 e ADR-0003)" → "Caminho dos ADRs":
+- `skill/SKILL.md`, seção "Convenções do projeto (ADR-1 e ADR-3)" → "Caminho dos ADRs":
   lista ordenada de 5 níveis, texto estável (usado como oráculo de teste por correspondência de
   substring, não por hash, para tolerar reformulação futura sem quebrar o teste por acidente de
   formatação).

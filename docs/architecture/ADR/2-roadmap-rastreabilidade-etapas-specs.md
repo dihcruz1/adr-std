@@ -1,18 +1,18 @@
-# ADR-0002: ROADMAP.md como documento central de rastreabilidade de etapas e specs
+# ADR-2: ROADMAP.md como documento central de rastreabilidade de etapas e specs
 
 | Campo | Valor |
 |---|---|
-| **ID** | ADR-0002 |
+| **ID** | ADR-2 |
 | **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
 | **Aprovado em** | 2026-10-01 |
-| **Modificado em** | — |
+| **Modificado em** | 2026-10-03 |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill; colaboradores e contribuidores do repositório |
 | **Concerns e aspectos** | Como acompanhar se uma etapa prevista num ADR já virou spec e se foi implementada corretamente? Como manter a rastreabilidade bidirecional entre decisões de arquitetura, especificações técnicas e entregas de código, sem poluir os ADRs individuais com informações de acompanhamento de execução? |
 | **Elementos afetados** | `docs/architecture/ADR/ROADMAP.md` (novo); ADRs individuais (seções `## Consequências` e `## Referências`); Specs em `docs/specs/` |
-| **Relações com outras decisões** | é habilitado por ADR-0001; é refinado por ADR-0003 |
+| **Relações com outras decisões** | é habilitado por ADR-1; é refinado por ADR-3 |
 
 ## Contexto e definição do problema
 
@@ -81,7 +81,7 @@ A Opção 1 (sem documento central) distribui a rastreabilidade entre dezenas de
 - **Negativas / custo:** O ROADMAP precisa ser mantido manualmente; se não for atualizado, torna-se desatualizado. Recomenda-se que cada PR que abre uma nova spec também atualize o ROADMAP.
 - **Neutras / acompanhar:** Verificar se ferramentas de CI/CD podem validar automaticamente que cada spec referencia um ADR de origem.
 - **Efeito em outras decisões:**
-  - ADR-0001 habilita esta decisão (o ROADMAP referencia ADRs pela pasta padrão definida nele).
+  - ADR-1 habilita esta decisão (o ROADMAP referencia ADRs pela pasta padrão definida nele).
   - O ROADMAP criado por esta decisão é o documento de acompanhamento das etapas das specs v1.0 a v1.3 já planejadas.
 
 ## Verificação
@@ -102,12 +102,13 @@ Não foi avaliada geração automática do ROADMAP por script (ex.: a partir dos
 |---|---|---|
 | 2026-10-01 | Criação | Diego |
 | 2026-10-01 | Aprovação (Status: Aceito) | Diego |
+| 2026-10-03 | Renumeração ADR-0002 → ADR-2 conforme ADR-4; texto da decisão inalterado | Diego |
 
 ## Referências
 
 - ISO/IEC/IEEE 42010:2022, 6.10.1 e 6.10.2 (seção de decisões: status descreve a decisão, não a implementação)
-- [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md) (habilita esta decisão)
+- [ADR-1](1-caminho-padrao-dos-adrs-e-personalizacao.md) (habilita esta decisão)
 - [Spec v1.1 — requirements.md](../../specs/2026-09-30-adr-std-v1-1-comandos-no-agente/requirements.md)
 - [ROADMAP do produto](../../../ROADMAP.md)
-- [ADR-0003](0003-atualizacao-automatica-do-roadmap-pelo-agente.md) (refina esta decisão — automação do ROADMAP)
+- [ADR-3](3-atualizacao-automatica-do-roadmap-pelo-agente.md) (refina esta decisão — automação do ROADMAP)
 - [ROADMAP de arquitetura (criado por esta decisão)](./ROADMAP.md)

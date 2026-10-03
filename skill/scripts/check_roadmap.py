@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Verifica a consistência do ROADMAP.md de arquitetura (ADR-0002 e ADR-0003).
+"""Verifica a consistência do ROADMAP.md de arquitetura (ADR-2 e ADR-3).
 
 Cobre: estrutura da tabela, rastreabilidade bidirecional entre ADRs e o
 ROADMAP, valores válidos de Status e a heurística de Status das Specs

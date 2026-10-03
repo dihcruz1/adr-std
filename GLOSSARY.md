@@ -28,7 +28,7 @@ Linguagem Ubíqua do projeto. Termos consolidados das specs em `docs/specs/`; em
 | **Pedido inicial** | Texto `Use a skill adr-std, ação "<ação>", com estes argumentos: <args>` entregue ao agente. |
 | **Pendente** | Campo do ADR que o usuário não informou; nunca é preenchido por invenção. |
 | **Plano de migração** | Lista das renomeações (`0005-x.md` → `5-x.md`) e dos links a corrigir, mostrada antes de aplicar; sem `--apply`, é só o que o `adr-std migrate` imprime. |
-| **Precedência de caminho (ADR-0001)** | `--path` > `.adr-std` > config global > `docs/architecture/ADR/`. |
+| **Precedência de caminho (ADR-1)** | `--path` > `.adr-std` > config global > `docs/architecture/ADR/`. |
 | **Relação recíproca** | Registro do mesmo vínculo nos dois ADRs, com o tipo inverso. |
 | **Release** | Versão publicada no GitHub com `adr-std.zip` e `adr-std.zip.sha256`. |
 | **Rodada** | Grupo de perguntas feito de uma vez na conversa guiada (`--ask N`). |

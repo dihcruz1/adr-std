@@ -1,4 +1,4 @@
-# Design — Atualização automática e silenciosa do ROADMAP (ADR-0003)
+# Design — Atualização automática e silenciosa do ROADMAP (ADR-3)
 
 | Campo | Detalhe |
 |---|---|
@@ -8,7 +8,7 @@
 ## Contrato
 
 Reaproveita `skill/scripts/check_roadmap.py` (mesmo script do
-[design do ADR-0002](../2026-10-01-adr-0002-roadmap-rastreabilidade/design.md)), acrescentando a
+[design do ADR-2](../2026-10-01-adr-0002-roadmap-rastreabilidade/design.md)), acrescentando a
 verificação de heurística de Status (RF-04):
 
 - Para cada linha cuja coluna "Spec Técnica" seja um link Markdown (não `*Pendente*`), resolve a
@@ -21,21 +21,21 @@ verificação de heurística de Status (RF-04):
     `Concluída`; caso contrário → `Em andamento`.
 - Compara com o Status da célula; reporta `[FALHA]` com o valor esperado quando divergir.
 
-Teste de texto sobre `SKILL.md` para RF-01 a RF-03 (mesmo molde da tarefa 1.1 do ADR-0001): procura
+Teste de texto sobre `SKILL.md` para RF-01 a RF-03 (mesmo molde da tarefa 1.1 do ADR-1): procura
 as frases-chave ("apenas a linha", os 4 gatilhos de Status, a frase de aviso final ao usuário) na
 seção "### ROADMAP.md (atualização automática)".
 
 ## Estratégia de testes
 
-`tests/test_check_roadmap.py` (mesmo arquivo da spec do ADR-0002, já que é o mesmo script) ganha
+`tests/test_check_roadmap.py` (mesmo arquivo da spec do ADR-2, já que é o mesmo script) ganha
 os casos de heurística de Status, com pastas de Spec sintéticas em diretório temporário.
 `tests/test_check_adr.py` ganha o teste de texto sobre `SKILL.md` para RF-01/02/03 (mesmo padrão
-da tarefa 1.1 do ADR-0001 — reaproveita o arquivo de testes já usado para esse tipo de verificação,
+da tarefa 1.1 do ADR-1 — reaproveita o arquivo de testes já usado para esse tipo de verificação,
 evitando um terceiro lugar para "testes de texto sobre SKILL.md").
 
 ## Modelo de domínio
 
-N/A — mesma natureza do ADR-0002 (verificação de texto estruturado), sem entidade de domínio nova.
+N/A — mesma natureza do ADR-2 (verificação de texto estruturado), sem entidade de domínio nova.
 
 ## Decisões de design
 

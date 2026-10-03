@@ -3,7 +3,7 @@
 | Campo | Detalhe |
 |---|---|
 | **Requisitos** | [requirements.md](requirements.md) |
-| **ADR de origem** | [ADR-0001](../../architecture/ADR/0001-caminho-padrao-dos-adrs-e-personalizacao.md) |
+| **ADR de origem** | [ADR-1](../../architecture/ADR/1-caminho-padrao-dos-adrs-e-personalizacao.md) |
 | **Status** | Gate 2 |
 
 ## 1. Visão geral
@@ -81,7 +81,7 @@ global; esta versão só passa a gravar lá pelo CLI. O teste de ida-e-volta (se
 
 **N/A justificado.** Não há invariante de domínio novo: `config path` é E/S sobre um arquivo de
 configuração chave-valor já existente, sem entidade rica nem agregado. A regra de precedência
-(ADR-0001) já vive em `resolve_folder` (função pura, testável) e não muda. Aplicar DDD tático aqui
+(ADR-1) já vive em `resolve_folder` (função pura, testável) e não muda. Aplicar DDD tático aqui
 violaria KISS/YAGNI (AGENTS.md: DDD só com invariante de domínio).
 
 ## 8. Impacto e reúso

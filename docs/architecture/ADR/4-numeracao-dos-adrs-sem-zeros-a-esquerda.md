@@ -12,7 +12,7 @@
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill |
 | **Concerns e aspectos** | Qual é a convenção padrão de numeração dos ADRs: `0001-titulo.md` ou `1-titulo.md`? O ID interno acompanha o nome do arquivo? O que acontece com os ADRs já existentes e com projetos que usam outra convenção? Como adequar a documentação, os links e as referências dos projetos que já usam a skill? |
 | **Elementos afetados** | `skill/scripts/check_adr.py`; `skill/scripts/check_roadmap.py`; `skill/scripts/adr_cli.py`; `skill/scripts/migrate_numbering.py` (novo); `bin/adr-std` e `bin/adr-std.ps1` (comando `migrate` e gancho do `update`); `skill/SKILL.md`; `skill/references/template-madr.md`, `checklist.md` e `guia-42010.md`; `GLOSSARY.md`; `docs/agents/domain.md`; `tests/`; ADRs 1 a 3 (atuais 0001 a 0003) e `docs/architecture/ADR/ROADMAP.md` |
-| **Relações com outras decisões** | influencia ADR-0001, ADR-0002 e ADR-0003 (nomes de arquivo e links serão renomeados); é compatível com a precedência de caminho do ADR-0001 |
+| **Relações com outras decisões** | influencia ADR-1, ADR-2 e ADR-3 (nomes de arquivo e links serão renomeados); é compatível com a precedência de caminho do ADR-1 |
 
 ## Contexto e definição do problema
 
@@ -23,7 +23,7 @@ Hoje o padrão da skill é `NNNN-<titulo-em-kebab-case>.md`, com 4 dígitos e ze
 - **Restrição:** nenhum ADR é apagado e links entre ADRs e specs não podem quebrar (SKILL.md, "Revisar ou reorganizar ADRs").
 - **Restrição:** renomear arquivos exige plano mostrado antes e autorização (SKILL.md); o solicitante autorizou o renomeio dos ADRs 0001 a 0003 deste repositório e a execução do script de migração pelo `update`, desde que o plano seja mostrado e o usuário confirme a aplicação.
 - **Restrição:** o primeiro `update` a partir de uma versão anterior à 2.0 é conduzido pelo wrapper e pelo instalador antigos, que não conhecem o script; a migração roda no `update` seguinte ou pelo comando `adr-std migrate`.
-- **Restrição:** a convenção do projeto prevalece sobre o padrão da skill (precedência do ADR-0001 e SKILL.md, passo 4 de "Criar um ADR").
+- **Restrição:** a convenção do projeto prevalece sobre o padrão da skill (precedência do ADR-1 e SKILL.md, passo 4 de "Criar um ADR").
 - **Suposição:** o número é sempre inteiro positivo, sequencial, maior existente + 1, sem reuso.
 - **Suposição:** sem zeros à esquerda, a ordem alfabética do sistema de arquivos deixa de coincidir com a ordem numérica (`10-` antes de `2-`); a ordenação por número passa a ser responsabilidade das ferramentas da skill.
 
@@ -111,7 +111,7 @@ Não decide a política de ordenação visual fora das ferramentas da skill (por
 ## Referências
 
 - ISO/IEC/IEEE 42010:2022, 6.10.1 e 6.10.2
-- [ADR-0001](0001-caminho-padrao-dos-adrs-e-personalizacao.md)
-- [ADR-0002](0002-roadmap-rastreabilidade-etapas-specs.md)
-- [ADR-0003](0003-atualizacao-automatica-do-roadmap-pelo-agente.md)
+- [ADR-1](1-caminho-padrao-dos-adrs-e-personalizacao.md)
+- [ADR-2](2-roadmap-rastreabilidade-etapas-specs.md)
+- [ADR-3](3-atualizacao-automatica-do-roadmap-pelo-agente.md)
 - [ROADMAP de arquitetura](./ROADMAP.md)

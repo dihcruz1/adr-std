@@ -17,7 +17,7 @@ Funciona em qualquer agente que leia `SKILL.md`. Documentação e respostas em p
    ela prevalece. Onde conflitar com a norma, **avise o usuário** e peça decisão.
 3. Ao citar uma exigência, diga a origem: **norma** (com a cláusula), **projeto** ou **skill**.
 
-## Convenções do projeto (ADR-0001 e ADR-0003)
+## Convenções do projeto (ADR-1 e ADR-3)
 
 ### Caminho dos ADRs
 
@@ -43,7 +43,7 @@ Sempre que criar ou modificar um ADR **ou** uma Spec como parte de qualquer aç�
    - Spec com `tasks.md` e todas as tarefas `[x]` → `Concluída`
 4. Não altere linhas de outros ADRs ou Specs que não foram tocados.
 5. Ao concluir a ação principal, informe ao usuário: _"ROADMAP atualizado: [linha afetada]."_
-6. Se o `ROADMAP.md` não existir na pasta de ADRs, crie-o com a estrutura definida no ADR-0002.
+6. Se o `ROADMAP.md` não existir na pasta de ADRs, crie-o com a estrutura definida no ADR-2.
 
 ## Comandos de ação (v1.1)
 
