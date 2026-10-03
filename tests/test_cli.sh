@@ -277,7 +277,7 @@ test_uninstall_removes_commands() {
 
 test_check() {
   local out
-  out="$("$CLI" check "$ROOT/tests/fixtures/0001-cache-de-sessao-em-redis.md")" || fail "check da fixture deveria passar" || return 1
+  out="$("$CLI" check "$ROOT/tests/fixtures/1-cache-de-sessao-em-redis.md")" || fail "check da fixture deveria passar" || return 1
   assert_contains "$out" "[OK" || return 1
   "$CLI" check "$ROOT/skill/references/template-madr.md" >/dev/null 2>&1 && fail "check do template deveria falhar"
   return 0
@@ -425,6 +425,138 @@ test_update() {
   [ "$old" != "9.9.9" ] || fail "versão inicial já era 9.9.9"
 }
 
+# update (v2.0): gancho de migração depois do instalador. O pacote falso é o próprio repositório
+# (start_server copia o working tree), então já traz skill/scripts/migrate_numbering.py.
+update_setup() { # prepara skill instalada, servidor falso e projeto com 0001-a.md
+  mkdir -p "$HOME/.claude"
+  installer --agent claude-code >/dev/null 2>&1 < /dev/null || fail "instalação inicial falhou" || return 1
+  start_server 9.9.9 || { fail "servidor de teste não subiu"; return 1; }
+  migrate_project || { stop_server; return 1; }
+  UTTY="$PWD/no-tty"   # arquivo inexistente: simula ausência de terminal
+}
+
+# Roda o update no projeto; define UOUT e UCODE.
+run_update() { # args...
+  UOUT="$(cd proj && ADR_STD_BASE_URL="$BASE" ADR_STD_TTY="$UTTY" "$HOME/.local/bin/adr-std" update "$@" 2>&1)"; UCODE=$?
+}
+
+assert_project_unchanged() {
+  assert_file proj/docs/architecture/ADR/0001-a.md || return 1
+  assert_no_file proj/docs/architecture/ADR/1-a.md || return 1
+  grep -qF '0001-a.md' proj/README.md || fail "README alterado"
+}
+
+test_update_migrate_no_tty() {
+  update_setup || return 1
+  run_update; stop_server
+  assert_eq "$UCODE" "0" "código do update" || return 1
+  assert_eq "$(cat "$HOME/.local/share/adr-std/VERSION")" "9.9.9" "versão depois do update" || return 1
+  assert_contains "$UOUT" "0001-a.md" || return 1
+  assert_contains "$UOUT" "1-a.md" || return 1
+  assert_contains "$UOUT" "adr-std migrate --apply" || return 1
+  printf '%s' "$UOUT" | grep -qF 'Aplicar a migração?' && fail "perguntou sem terminal" && return 1
+  assert_project_unchanged
+}
+
+test_update_migrate_tty_yes() {
+  update_setup || return 1
+  printf 's\n' > ans; UTTY="$PWD/ans"
+  run_update; stop_server
+  assert_eq "$UCODE" "0" "código do update" || return 1
+  assert_contains "$UOUT" "Aplicar a migração? [s/N]" || return 1
+  assert_file proj/docs/architecture/ADR/1-a.md || return 1
+  assert_no_file proj/docs/architecture/ADR/0001-a.md || return 1
+  grep -qF 'docs/architecture/ADR/1-a.md' proj/README.md || fail "link do README não corrigido"
+}
+
+test_update_migrate_tty_no() {
+  update_setup || return 1
+  local answer
+  for answer in 'n' '' 'talvez'; do
+    printf '%s\n' "$answer" > ans; UTTY="$PWD/ans"
+    run_update
+    assert_eq "$UCODE" "0" "código do update (resposta '$answer')" || { stop_server; return 1; }
+    assert_contains "$UOUT" "Aplicar a migração? [s/N]" || { stop_server; return 1; }
+    assert_project_unchanged || { stop_server; return 1; }
+  done
+  : > ans   # EOF sem resposta
+  run_update; stop_server
+  assert_eq "$UCODE" "0" "código do update (EOF)" || return 1
+  assert_project_unchanged
+}
+
+test_update_no_migrate() {
+  update_setup || return 1
+  printf 's\n' > ans; UTTY="$PWD/ans"
+  run_update --no-migrate; stop_server
+  assert_eq "$UCODE" "0" "código do update" || return 1
+  assert_eq "$(cat "$HOME/.local/share/adr-std/VERSION")" "9.9.9" "skill atualizada" || return 1
+  printf '%s' "$UOUT" | grep -qE 'plano de migração|migração: nada a fazer|Aplicar a migração' && fail "calculou ou mostrou o plano com --no-migrate" && return 1
+  assert_project_unchanged
+}
+
+test_update_dry_run_no_migrate() {
+  update_setup || return 1
+  run_update --dry-run; stop_server
+  assert_eq "$UCODE" "0" "código do update" || return 1
+  assert_contains "$UOUT" "simulação" || return 1
+  printf '%s' "$UOUT" | grep -qE 'plano de migração|migração: nada a fazer' && fail "migrou com --dry-run" && return 1
+  assert_project_unchanged
+}
+
+test_update_migrate_nothing_to_do() {
+  update_setup || return 1
+  # projeto com numbering: padded
+  printf 'numbering: padded\n' > proj/.adr-std
+  run_update
+  assert_eq "$UCODE" "0" "código do update (padded)" || { stop_server; return 1; }
+  assert_contains "$UOUT" "migração: nada a fazer" || { stop_server; return 1; }
+  printf '%s' "$UOUT" | grep -qF 'plano de migração' && { stop_server; fail "mostrou plano em projeto padded"; return 1; }
+  assert_project_unchanged || { stop_server; return 1; }
+  # diretório sem pasta de ADRs
+  mkdir -p empty && ( cd empty && git init -q )
+  UOUT="$(cd empty && ADR_STD_BASE_URL="$BASE" ADR_STD_TTY="$UTTY" "$HOME/.local/bin/adr-std" update 2>&1)"; UCODE=$?
+  stop_server
+  assert_eq "$UCODE" "0" "código do update (sem pasta)" || return 1
+  assert_contains "$UOUT" "migração: nada a fazer" || return 1
+  printf '%s' "$UOUT" | grep -qF 'plano de migração' && fail "mostrou plano sem pasta de ADRs"
+  return 0
+}
+
+test_update_migrate_no_python() {
+  update_setup || return 1
+  # PATH só com as ferramentas do instalador, sem python
+  mkdir -p nopybin
+  local t p
+  for t in bash sh curl unzip sha256sum shasum cp mv rm mkdir cat date dirname basename grep sed awk tr cut sort uname mktemp ln chmod head tail printf env wc readlink tee find xargs; do
+    p="$(command -v "$t" 2>/dev/null)" && [ -x "$p" ] && ln -sf "$p" "nopybin/$t"
+  done
+  UOUT="$(cd proj && PATH="$PWD/../nopybin" ADR_STD_BASE_URL="$BASE" ADR_STD_TTY="$UTTY" "$HOME/.local/bin/adr-std" update 2>&1)"; UCODE=$?
+  stop_server
+  assert_eq "$UCODE" "0" "código do update sem Python" || { echo "$UOUT"; return 1; }
+  assert_eq "$(cat "$HOME/.local/share/adr-std/VERSION")" "9.9.9" "skill continua atualizada" || return 1
+  assert_contains "$UOUT" "aviso" || return 1
+  assert_contains "$UOUT" "Python" || return 1
+  assert_project_unchanged
+}
+
+test_update_failed_installer_no_migration() {
+  update_setup || return 1
+  echo "0000000000000000000000000000000000000000000000000000000000000000  adr-std.zip" > site/releases/latest/download/adr-std.zip.sha256
+  printf 's\n' > ans; UTTY="$PWD/ans"
+  run_update; stop_server
+  assert_eq "$UCODE" "5" "código do instalador preservado" || return 1
+  assert_contains "$UOUT" "checksum" || return 1
+  printf '%s' "$UOUT" | grep -qE 'plano de migração|migração: nada a fazer|Aplicar a migração' && fail "migrou com o instalador falhando" && return 1
+  assert_project_unchanged
+}
+
+test_help_lists_update_no_migrate() {
+  local out; out="$("$CLI" help)" || fail "help falhou" || return 1
+  assert_contains "$out" "--no-migrate" || return 1
+  assert_contains "$out" "plano de migração"
+}
+
 gate_copy() { # copia o repositório (sem .git) para ./repo
   mkdir -p repo && cp -R "$ROOT/." repo/ && rm -rf repo/.git repo/dist
 }
@@ -467,16 +599,45 @@ test_gate_checks_tag_version() {
 
 test_help_lists_new_commands() {
   local out; out="$("$CLI" help)" || return 1
-  for c in new list link organize; do
+  for c in new list link organize migrate; do
     assert_contains "$out" "  $c " || return 1
   done
+  assert_contains "$out" "--apply" || return 1
+  assert_contains "$out" "--exclude" || return 1
+}
+
+migrate_project() {
+  mkdir -p proj/docs/architecture/ADR || return 1
+  ( cd proj && git init -q && git config user.email t@t && git config user.name t ) || return 1
+  printf '# ADR-0001: A\n' > proj/docs/architecture/ADR/0001-a.md
+  printf 'Veja [A](docs/architecture/ADR/0001-a.md).\n' > proj/README.md
+  ( cd proj && git add -A && git commit -q -m init ) || return 1
+}
+
+test_cli_migrate_plan() {
+  migrate_project || return 1
+  local out; out="$(cd proj && "$CLI" migrate 2>&1)" || fail "migrate falhou: $out" || return 1
+  assert_contains "$out" "0001-a.md" || return 1
+  assert_contains "$out" "1-a.md" || return 1
+  assert_file proj/docs/architecture/ADR/0001-a.md || return 1
+  assert_no_file proj/docs/architecture/ADR/1-a.md || return 1
+  grep -qF '0001-a.md' proj/README.md || fail "README alterado sem --apply"
+}
+
+test_cli_migrate_apply() {
+  migrate_project || return 1
+  local out; out="$(cd proj && "$CLI" migrate --apply 2>&1)" || fail "migrate --apply falhou: $out" || return 1
+  assert_file proj/docs/architecture/ADR/1-a.md || return 1
+  assert_no_file proj/docs/architecture/ADR/0001-a.md || return 1
+  grep -qF 'docs/architecture/ADR/1-a.md' proj/README.md || fail "link do README não corrigido" || return 1
+  out="$(cd proj && "$CLI" migrate 2>&1)" || fail "segunda execução falhou: $out"
 }
 
 test_cli_new_list() {
   local out
   out="$("$CLI" new "Usar fila" --path adrs)" || fail "new falhou" || return 1
-  assert_contains "$out" "0001-usar-fila.md" || return 1
-  assert_file adrs/0001-usar-fila.md || return 1
+  assert_contains "$out" "1-usar-fila.md" || return 1
+  assert_file adrs/1-usar-fila.md || return 1
   out="$("$CLI" list --path adrs)" || fail "list falhou" || return 1
   assert_contains "$out" "Usar fila" || return 1
   assert_contains "$out" "Proposto"
@@ -484,12 +645,12 @@ test_cli_new_list() {
 
 test_cli_link_organize() {
   "$CLI" new "Um" --path adrs >/dev/null && "$CLI" new "Dois" --path adrs >/dev/null || return 1
-  "$CLI" link ADR-0001 restringe ADR-0002 --path adrs >/dev/null || fail "link falhou" || return 1
-  grep -qF 'é restringido por ADR-0001' adrs/0002-dois.md || fail "relação recíproca ausente" || return 1
-  mv adrs/0002-dois.md adrs/0005-dois.md
+  "$CLI" link ADR-1 restringe ADR-2 --path adrs >/dev/null || fail "link falhou" || return 1
+  grep -qF 'é restringido por ADR-1' adrs/2-dois.md || fail "relação recíproca ausente" || return 1
+  mv adrs/2-dois.md adrs/5-dois.md
   local out; out="$("$CLI" organize --dry-run --path adrs)" || fail "organize falhou" || return 1
-  assert_contains "$out" "0005-dois.md -> 0002-dois.md" || return 1
-  assert_file adrs/0005-dois.md
+  assert_contains "$out" "5-dois.md -> 2-dois.md" || return 1
+  assert_file adrs/5-dois.md
 }
 
 test_cli_no_python() {
@@ -500,6 +661,14 @@ test_cli_no_python() {
     assert_contains "$out" "Python" || return 1
     assert_contains "$out" "checklist" || return 1
   done
+}
+
+test_cli_migrate_no_python() {
+  local out code
+  out="$(PATH="/nao/existe" /bin/bash "$CLI" migrate 2>&1)"; code=$?
+  assert_eq "$code" "6" "código de migrate sem Python" || return 1
+  assert_contains "$out" "Python" || return 1
+  assert_contains "$out" "checklist"
 }
 
 test_installer_copies_command_tables() {
@@ -598,10 +767,10 @@ test_config_path() {
   # ida-e-volta: o path gravado pelo CLI é lido por list (resolve_folder)
   command -v python3 >/dev/null || return 0  # sem Python, só a parte mecânica acima
   mkdir -p outra-pasta
-  printf '# ADR-0001: teste\n\n| **ID** | ADR-0001 |\n| **Status** | Proposto |\n| **Data da decisão** | 2026-10-02 |\n' > outra-pasta/0001-teste.md
+  printf '# ADR-1: teste\n\n| **ID** | ADR-1 |\n| **Status** | Proposto |\n| **Data da decisão** | 2026-10-02 |\n' > outra-pasta/1-teste.md
   "$CLI" config path outra-pasta >/dev/null || return 1
   out="$("$CLI" list)" || fail "list falhou" || return 1
-  assert_contains "$out" "ADR-0001" || return 1
+  assert_contains "$out" "ADR-1" || return 1
   assert_contains "$out" "teste"
 }
 

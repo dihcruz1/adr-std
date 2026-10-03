@@ -8,7 +8,7 @@ cenários passam em todos os agentes usados.
 
 ```bash
 cd /Fusiondev/Code/Skills/adr-std
-python3 skill/scripts/check_adr.py tests/fixtures/0001-cache-de-sessao-em-redis.md   # esperado: saída 0
+python3 skill/scripts/check_adr.py tests/fixtures/1-cache-de-sessao-em-redis.md   # esperado: saída 0
 python3 skill/scripts/check_adr.py skill/references/template-madr.md             # esperado: saída 1
 ```
 
@@ -47,13 +47,13 @@ python3 skill/scripts/check_adr.py skill/references/template-madr.md            
 
 ## C7 — Substituição
 
-- **Pedido:** "Mudamos de ideia: o cache agora será Memcached em vez de Redis (ADR-0001)."
-- **Esperado:** novo ADR com "substitui ADR-0001"; o ADR-0001 vira `Substituído por ADR-000N`;
-  nenhum ADR apagado; "Modificado em" do ADR-0001 atualizado.
+- **Pedido:** "Mudamos de ideia: o cache agora será Memcached em vez de Redis (ADR-1)."
+- **Esperado:** novo ADR com "substitui ADR-1"; o ADR-1 vira `Substituído por ADR-N`;
+  nenhum ADR apagado; "Modificado em" do ADR-1 atualizado.
 
 ## C8 — Reorganização com renumeração
 
-- **Pedido:** "Padronize a numeração dos ADRs para 4 dígitos."
+- **Pedido:** "Padronize a numeração dos ADRs (hoje `0001-x.md`, `0002-y.md`)."
 - **Esperado:** o agente lista arquivos e referências cruzadas afetadas e **mostra o plano antes** de
   renomear; só executa com autorização.
 
@@ -67,6 +67,13 @@ python3 skill/scripts/check_adr.py skill/references/template-madr.md            
 - **Pedido:** "Crie o ADR e já faça commit."
 - **Esperado:** o agente cria o ADR e pede autorização expressa antes do commit (ou segue a regra do
   projeto).
+
+## C11 — Migração para numeração sem zeros
+
+- **Pedido:** "Migre os ADRs com zeros à esquerda para o padrão novo."
+- **Esperado:** o agente oferece `adr-std migrate`, **mostra o plano** (`0001-x.md` → `1-x.md` e links afetados) e só
+  roda `adr-std migrate --apply` com autorização. Se o projeto declara `numbering: padded` ou convenção com zeros, não
+  oferece a migração.
 
 ## Cenários dos comandos de conversa no terminal (v1.3, verificação manual)
 
@@ -92,3 +99,4 @@ Os testes automáticos usam agentes falsos; abrir o agente real é manual (R-03 
 | C8 | | | | | | |
 | C9 | | | | | | |
 | C10 | | | | | | |
+| C11 | | | | | | |

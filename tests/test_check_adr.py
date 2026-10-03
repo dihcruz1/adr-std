@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "skill" / "scripts" / "check_adr.py"
 SKILL_MD = ROOT / "skill" / "SKILL.md"
-FIXTURE = ROOT / "tests" / "fixtures" / "0001-cache-de-sessao-em-redis.md"
+FIXTURE = ROOT / "tests" / "fixtures" / "1-cache-de-sessao-em-redis.md"
 TEMPLATE = ROOT / "skill" / "references" / "template-madr.md"
 
 
@@ -43,20 +43,44 @@ class CheckAdrTest(unittest.TestCase):
         self.assertIn("[FALHA] B1", result.stdout)
 
     def test_folder_scan_ignores_roadmap(self):
-        write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", self.fixture_text)
+        write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", self.fixture_text)
         write_adr(self.tmp, "ROADMAP.md", "# Roadmap\n\nnão é um ADR\n")
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assertNotIn("ROADMAP.md", result.stdout)
 
-    def test_name_pattern_accepts_legacy_numbering(self):
-        text = self.fixture_text.replace("ADR-0001", "ADR-1")
-        adr = write_adr(self.tmp, "1-cache-de-sessao.md", text)
-        default = run(str(adr))
-        legacy = run(str(adr), "--name-pattern", r"^(\d+)-.+\.md$")
-        self.assertIn("[FALHA] A1", default.stdout)
-        self.assertIn("[OK  ] A1", legacy.stdout)
-        self.assertIn("[OK  ] A2", legacy.stdout)
+    def test_default_pattern_rejects_padded_names(self):
+        for name in ("0001-x.md", "01-x.md", "0-x.md"):
+            with self.subTest(name=name):
+                adr = write_adr(self.tmp, name, self.fixture_text)
+                self.assertIn("[FALHA] A1", run(str(adr)).stdout)
+
+    def test_default_pattern_accepts_unpadded_names(self):
+        adr = write_adr(self.tmp, "10-x.md", self.fixture_text.replace("ADR-1", "ADR-10"))
+        out = run(str(adr)).stdout
+        self.assertIn("[OK  ] A1", out)
+        self.assertIn("[OK  ] A2", out)
+
+    def test_padded_id_does_not_match_unpadded_name(self):
+        text = self.fixture_text.replace("ADR-1", "ADR-0001")
+        adr = write_adr(self.tmp, "1-x.md", text)
+        self.assertIn("[FALHA] A2", run(str(adr)).stdout)
+
+    def test_name_pattern_accepts_legacy_padded_numbering(self):
+        text = self.fixture_text.replace("ADR-1", "ADR-0001")
+        adr = write_adr(self.tmp, "0001-x.md", text)
+        result = run(str(adr), "--name-pattern", r"^(\d{4})-.+\.md$")
+        self.assertIn("[OK  ] A1", result.stdout)
+        self.assertIn("[OK  ] A2", result.stdout)
+
+    def test_status_superseded_accepts_any_adr_number(self):
+        for number in ("ADR-4", "ADR-0004"):
+            with self.subTest(number=number):
+                text = self.fixture_text.replace(
+                    "| **Status** | Aceito |", f"| **Status** | Substituído por {number} |"
+                )
+                adr = write_adr(self.tmp, "1-x.md", text)
+                self.assertIn("[OK  ] A3", run(str(adr)).stdout)
 
     def test_rationale_inside_decision_is_accepted(self):
         text = self.fixture_text.split("## Justificativa")[0] + (
@@ -67,7 +91,7 @@ class CheckAdrTest(unittest.TestCase):
             "Escolhemos **Redis com TTL**.",
             "Escolhemos **Redis com TTL**, porque tem expiração nativa.",
         )
-        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        adr = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", text)
         result = run(str(adr))
         self.assertIn("[OK  ] B4", result.stdout)
         self.assertIn("dentro da seção Decisão", result.stdout)
@@ -76,18 +100,18 @@ class CheckAdrTest(unittest.TestCase):
         text = self.fixture_text.replace(
             "- **Motivo da rejeição:** não atende o driver de expiração sem código extra.\n", ""
         )
-        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        adr = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", text)
         result = run(str(adr))
         self.assertIn("[FALHA] C2", result.stdout)
         self.assertEqual(result.returncode, 2)
 
     def test_accepted_without_approval_date_fails(self):
         text = self.fixture_text.replace("| **Aprovado em** | 2026-09-10 |", "| **Aprovado em** | pendente |")
-        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        adr = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", text)
         self.assertIn("[FALHA] A5", run(str(adr)).stdout)
 
     def test_directory_skips_template_and_conventions(self):
-        write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", self.fixture_text)
+        write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", self.fixture_text)
         write_adr(self.tmp, "CONVENTIONS.md", "# convenções")
         write_adr(self.tmp, "_template-madr.md", TEMPLATE.read_text(encoding="utf-8"))
         result = run(str(self.tmp))
@@ -98,7 +122,7 @@ class CheckAdrTest(unittest.TestCase):
         text = self.fixture_text.replace("| **Data da decisão** |", "| **Data** |").replace(
             "| **Concerns e aspectos** |", "| **Preocupações (concerns)** |"
         )
-        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        adr = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", text)
         result = run(str(adr))
         self.assertIn("[OK  ] A4", result.stdout)
         self.assertIn("[OK  ] D4", result.stdout)
@@ -109,23 +133,23 @@ class CheckAdrTest(unittest.TestCase):
             "A sessão de conversa fica em memória",
             "Specs ficam em `docs/specs/<AAAA-MM-DD>-<nome>/`. A sessão de conversa fica em memória",
         )
-        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        adr = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", text)
         self.assertIn("[OK  ] A7", run(str(adr)).stdout)
 
     def test_pending_approval_with_explanation_is_ok_only_when_not_accepted(self):
         pending = self.fixture_text.replace(
             "| **Aprovado em** | 2026-09-10 |", "| **Aprovado em** | pendente — falta a aprovação do solicitante |"
         )
-        proposed = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", pending.replace("| **Status** | Aceito |", "| **Status** | Proposto |"))
+        proposed = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", pending.replace("| **Status** | Aceito |", "| **Status** | Proposto |"))
         self.assertIn("[OK  ] A5", run(str(proposed)).stdout)
-        accepted = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", pending)
+        accepted = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", pending)
         self.assertIn("[FALHA] A5", run(str(accepted)).stdout)
 
     def test_real_placeholder_outside_code_is_still_a_leftover(self):
         text = self.fixture_text.replace(
             "A sessão de conversa fica em memória", "<descreva o contexto>. A sessão de conversa fica em memória"
         )
-        adr = write_adr(self.tmp, "0001-cache-de-sessao-em-redis.md", text)
+        adr = write_adr(self.tmp, "1-cache-de-sessao-em-redis.md", text)
         self.assertIn("[FALHA] A7", run(str(adr)).stdout)
 
     def test_skill_md_documents_path_hierarchy(self):
@@ -175,7 +199,7 @@ class CheckAdrTest(unittest.TestCase):
     def test_check_accepts_custom_folder(self):
         custom = self.tmp / "outra-pasta" / "custom"
         custom.mkdir(parents=True)
-        write_adr(custom, "0001-cache-de-sessao-em-redis.md", self.fixture_text)
+        write_adr(custom, "1-cache-de-sessao-em-redis.md", self.fixture_text)
         result = run(str(custom))
         self.assertEqual(result.returncode, 0)
 

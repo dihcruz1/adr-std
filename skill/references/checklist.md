@@ -8,9 +8,9 @@ Os itens marcados com `[auto]` são verificados por `scripts/check_adr.py`. Os d
 
 ## A. Identificação e forma
 
-- [ ] `[auto]` A1 (S/P) Nome do arquivo segue a convenção (`NNNN-kebab-case.md` por padrão).
-- [ ] `[auto]` A2 (N-DEVERIA, I1) ID do cabeçalho existe e coincide com o número do arquivo.
-- [ ] `[auto]` A3 (S) Status é um dos valores: Proposto, Aceito, Rejeitado, Substituído por ADR-NNNN, Obsoleto.
+- [ ] `[auto]` A1 (S/P) Nome do arquivo segue a convenção (`<N>-kebab-case.md` por padrão; `N` sem zeros à esquerda, salvo convenção declarada do projeto).
+- [ ] `[auto]` A2 (N-DEVERIA, I1) ID do cabeçalho existe e coincide com o número do arquivo (`ADR-<N>` e `<N>-...md`, mesma largura).
+- [ ] `[auto]` A3 (S) Status é um dos valores: Proposto, Aceito, Rejeitado, Substituído por ADR-N, Obsoleto.
 - [ ] `[auto]` A4 (N-DEVERIA, I10) "Data da decisão" em AAAA-MM-DD.
 - [ ] `[auto]` A5 (N-DEVERIA, I10) "Aprovado em" preenchido (data ou `pendente`); se Status = Aceito, é uma data.
 - [ ] `[auto]` A6 (N-DEVERIA, I10) "Modificado em" preenchido (data ou `—`).

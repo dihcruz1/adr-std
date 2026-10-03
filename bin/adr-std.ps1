@@ -207,10 +207,11 @@ $script:All = $false
 $script:Link = $false
 $script:Dry = $false
 $script:NoCommands = $false
+$script:NoMigrate = $false
 $script:ReqVersion = ''
 
 function Read-Option([string[]]$Tokens) {
-    $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Dry = $false; $script:NoCommands = $false; $script:ReqVersion = ''
+    $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Dry = $false; $script:NoCommands = $false; $script:NoMigrate = $false; $script:ReqVersion = ''
     $i = 0
     while ($i -lt $Tokens.Count) {
         $t = $Tokens[$i]; $i++
@@ -221,6 +222,7 @@ function Read-Option([string[]]$Tokens) {
             '^--link$'     { $script:Link = $true; continue }
             '^--dry-run$'  { $script:Dry = $true; continue }
             '^--no-commands$' { $script:NoCommands = $true; continue }
+            '^--no-migrate$' { $script:NoMigrate = $true; continue }
             '^--version$'  { if ($i -lt $Tokens.Count) { $script:ReqVersion = $Tokens[$i]; $i++ }; continue }
             '^--'          { Stop-AdrStd 2 "opção desconhecida: $t" }
             default {
@@ -397,15 +399,19 @@ function Invoke-Agent {
 }
 
 # Roda um script Python da skill; sem Python 3, avisa e indica o checklist manual (código 6).
-function Invoke-PythonScript([string]$ScriptName, [string]$Command, [string[]]$Tokens) {
-    $py = $null
+function Get-Python3 {
     foreach ($cand in 'python3', 'python', 'py') {
         $found = Get-Command $cand -ErrorAction SilentlyContinue
         if ($found) {
             & $found.Source -c 'import sys; sys.exit(0 if sys.version_info[0] >= 3 else 1)' 2>$null
-            if ($LASTEXITCODE -eq 0) { $py = $found.Source; break }
+            if ($LASTEXITCODE -eq 0) { return $found.Source }
         }
     }
+    return $null
+}
+
+function Invoke-PythonScript([string]$ScriptName, [string]$Command, [string[]]$Tokens) {
+    $py = Get-Python3
     if (-not $py) {
         Stop-AdrStd 6 ("o comando {0} precisa de Python 3, que não foi encontrado. Instale o Python 3 ou aplique o checklist manualmente: {1}" -f $Command, (Join-Path $Src 'skill/references/checklist.md'))
     }
@@ -423,6 +429,11 @@ function Invoke-Check([string[]]$Tokens) {
 # new, list, link e organize: lógica em skill/scripts/adr_cli.py
 function Invoke-Mechanical([string]$Command, [string[]]$Tokens) {
     Invoke-PythonScript 'adr_cli.py' $Command (@($Command) + $Tokens)
+}
+
+# migrate: lógica em skill/scripts/migrate_numbering.py (plano por omissão; --apply aplica)
+function Invoke-Migrate([string[]]$Tokens) {
+    Invoke-PythonScript 'migrate_numbering.py' 'migrate' $Tokens
 }
 
 function Invoke-Update([string[]]$Tokens) {
@@ -443,7 +454,64 @@ function Invoke-Update([string[]]$Tokens) {
     if ($script:Link) { $opts += '--link' }
     $ps = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
     & $ps -NoProfile -ExecutionPolicy Bypass -File $installer @opts --agent @ids
-    exit $LASTEXITCODE
+    $rc = $LASTEXITCODE
+    if ($rc -ne 0) { exit $rc }
+    if (-not $script:NoMigrate) { Invoke-MaybeMigrate }
+    exit 0
+}
+
+# Roda migrate_numbering.py no diretório atual e devolve a saída e o código (nunca encerra o comando).
+function Invoke-MigrateStep([string]$Py, [string]$Script, [string[]]$Tokens) {
+    $oldEnc = [Console]::OutputEncoding
+    $oldPyEnc = $env:PYTHONIOENCODING
+    try {
+        [Console]::OutputEncoding = [Text.Encoding]::UTF8
+        $env:PYTHONIOENCODING = 'utf-8'
+        $out = (& $Py $Script @Tokens 2>&1 | Out-String).TrimEnd()
+        $code = $LASTEXITCODE
+    } finally {
+        [Console]::OutputEncoding = $oldEnc
+        if ($null -eq $oldPyEnc) { Remove-Item Env:PYTHONIOENCODING -ErrorAction SilentlyContinue } else { $env:PYTHONIOENCODING = $oldPyEnc }
+    }
+    [pscustomobject]@{ Output = $out; Code = $code }
+}
+
+# Gancho do update (v2.0): mostra o plano de migração dos ADRs do diretório atual e só aplica com
+# confirmação interativa (SEG-06). Qualquer falha vira aviso e não altera o código de saída do update.
+function Invoke-MaybeMigrate {
+    try {
+        $py = Get-Python3
+        if (-not $py) {
+            Write-Host 'aviso: a skill foi atualizada, mas a migração precisa de Python 3, que não foi encontrado. Quando puder, rode: adr-std migrate'
+            return
+        }
+        $script = Join-Path $Src 'skill/scripts/migrate_numbering.py'
+        if (-not (Test-Path $script)) {
+            Write-Host "aviso: a skill foi atualizada, mas migrate_numbering.py não foi encontrado em $(Join-Path $Src 'skill/scripts')."
+            return
+        }
+        $r = Invoke-MigrateStep $py $script @()
+        if ($r.Code -ne 0) {
+            Write-Host "aviso: a skill foi atualizada, mas não foi possível calcular o plano de migração (código $($r.Code)):"
+            Write-Host $r.Output
+            Write-Host 'Quando puder, rode: adr-std migrate'
+            return
+        }
+        $first = ($r.Output -split "`n" | Select-Object -First 1)
+        if ($first -notmatch 'plano de migração') { Write-Host 'migração: nada a fazer'; return }
+        Write-Host $r.Output
+        $ans = Read-Answer 'Aplicar a migração? [s/N] '
+        if ($null -eq $ans) { Write-Host 'adr-std migrate --apply'; return }
+        if ($ans -cmatch '^[sS]$') {
+            $a = Invoke-MigrateStep $py $script @('--apply')
+            Write-Host $a.Output
+            if ($a.Code -ne 0) { Write-Host "aviso: a migração não foi concluída (código $($a.Code)); a skill continua atualizada. Veja a mensagem acima e rode: adr-std migrate" }
+        } else {
+            Write-Host 'Migração não aplicada. Para aplicar depois: adr-std migrate --apply'
+        }
+    } catch {
+        Write-Host "aviso: a skill foi atualizada, mas a etapa de migração falhou: $($_.Exception.Message)"
+    }
 }
 
 function Invoke-SelfUninstall([string[]]$Tokens) {
@@ -655,6 +723,8 @@ Comandos:
       --dry-run          Mostra o que faria, sem alterar nada
       --version vX.Y.Z   Versão específica
   update                 Atualiza nos agentes já registrados (--agent inclui mais agentes)
+      --no-migrate       Não calcula nem mostra o plano de migração dos ADRs (por omissão o update mostra o plano
+                         no diretório atual e só aplica com sua confirmação em terminal)
   uninstall [agentes...] Remove a skill (sem agentes: de todos)
   self-uninstall         Remove tudo, inclusive este comando
   status                 Versão, agentes e integridade
@@ -665,6 +735,8 @@ Comandos:
   link <A> <tipo> <B>    Registra uma relação entre dois ADRs, nos dois lados (Python 3)
   organize --dry-run     Mostra o plano de renumeração, sem alterar nada (Python 3)
                          (new, list, link e organize aceitam --path PASTA e --name-pattern REGEX)
+  migrate [--apply]      Migra ADRs com zeros à esquerda (0001-x.md) para o padrão sem zeros; só mostra o plano sem --apply (Python 3)
+                         (aceita --path PASTA, --root RAIZ e --exclude GLOB, repetível, para proteger arquivos)
   create [agente] <descrição>   Abre um agente para criar um ADR em conversa (aceita --ask N e --quick)
   supersede [agente] <ADR>      Abre um agente para criar o ADR que substitui outro (aceita --ask N e --quick)
   review [agente] <pasta>       Abre um agente para revisar ADRs
@@ -694,6 +766,7 @@ switch ($cmd) {
     'status'         { Invoke-Status }
     'check'          { Invoke-Check $rest }
     { $_ -in 'new', 'list', 'link', 'organize' } { Invoke-Mechanical $cmd $rest }
+    'migrate'        { Invoke-Migrate $rest }
     { $_ -in 'create', 'supersede', 'review', 'audit', 'ask' } { Invoke-Converse $cmd $rest }
     'config'         { Invoke-Config $rest }
     'update'         { Invoke-Update $rest }

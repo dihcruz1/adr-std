@@ -74,28 +74,49 @@ def slugify(title: str) -> str:
     return re.sub(r"-+", "-", slug) or "adr"
 
 
+def number_of(path: Path, name_pattern: re.Pattern[str]) -> str | None:
+    """Número do ADR no nome do arquivo (grupo 1 do padrão), como texto; None se não casar."""
+    m = name_pattern.match(path.name)
+    if not m or m.re.groups < 1:
+        return None
+    return m.group(1)
+
+
+def number_width(numbers: list[str]) -> int:
+    """Maior largura entre os números com zeros à esquerda; 0 se nenhum tiver (fonte única da largura)."""
+    return max((len(n) for n in numbers if len(n) > 1 and n.startswith("0")), default=0)
+
+
+def format_number(n: int, width: int) -> str:
+    return str(n).zfill(width)
+
+
 def list_adrs(folder: Path, name_pattern: re.Pattern[str]) -> list[Path]:
     files = []
-    for f in sorted(folder.glob("*.md")):
+    for f in folder.glob("*.md"):
         if f.name in IGNORED_FILES or f.name.startswith("_"):
             continue
         if name_pattern.match(f.name):
             files.append(f)
-    return files
+
+    def sort_key(f: Path) -> tuple[int, int, str]:
+        number = number_of(f, name_pattern)
+        if number is not None and number.isdecimal():
+            return (0, int(number), f.name)
+        return (1, 0, f.name)
+
+    return sorted(files, key=sort_key)
 
 
 def next_number(folder: Path, name_pattern: re.Pattern[str]) -> str:
-    width = 4
-    best = 0
+    numbers: list[str] = []
     if folder.exists():
         for f in list_adrs(folder, name_pattern):
-            m = name_pattern.match(f.name)
-            if not m:
-                continue
-            num = m.group(1)
-            width = max(width, len(num))
-            best = max(best, int(num))
-    return str(best + 1).zfill(width)
+            number = number_of(f, name_pattern)
+            if number is not None and number.isdecimal():
+                numbers.append(number)
+    best = max((int(n) for n in numbers), default=0)
+    return format_number(best + 1, number_width(numbers))
 
 
 ADR_SECTIONS = [
@@ -163,8 +184,16 @@ def cmd_new(args: argparse.Namespace) -> int:
         print("adr-std: o título não pode ser vazio", file=sys.stderr)
         return 2
     folder = args.folder
-    folder.mkdir(parents=True, exist_ok=True)
     number = next_number(folder, args.name_pattern)
+    name = f"{number}-{slugify(title)}.md"
+    if not args.name_pattern.match(name):
+        print(
+            f"adr-std: o nome gerado '{name}' não casa com o padrão ativo "
+            f"'{args.name_pattern.pattern}'; ajuste --name-pattern ou crie o ADR manualmente",
+            file=sys.stderr,
+        )
+        return 1
+    folder.mkdir(parents=True, exist_ok=True)
     path = write_new_adr(folder, number, title, date.today().isoformat())
     print(f"criado: {path}")
     return 0
@@ -258,13 +287,15 @@ def cmd_organize(args: argparse.Namespace) -> int:
         print(f"adr-std: pasta não encontrada: {folder}", file=sys.stderr)
         return 1
     files = list_adrs(folder, args.name_pattern)
+    width = number_width([n for n in (number_of(f, args.name_pattern) for f in files) if n is not None])
     plan = []
-    for i, f in enumerate(sorted(files, key=lambda p: p.name), start=1):
-        header, _ = parse(f.read_text(encoding="utf-8"))
-        expected_id = f"ADR-{str(i).zfill(4)}"
-        if header.get("ID") != expected_id or not f.name.startswith(str(i).zfill(4)):
-            slug = slugify(adr_title(f.read_text(encoding="utf-8"), f.stem))
-            plan.append((f.name, f"{str(i).zfill(4)}-{slug}.md"))
+    for i, f in enumerate(files, start=1):
+        text = f.read_text(encoding="utf-8")
+        header, _ = parse(text)
+        expected = format_number(i, width)
+        if header.get("ID") != f"ADR-{expected}" or number_of(f, args.name_pattern) != expected:
+            slug = slugify(adr_title(text, f.stem))
+            plan.append((f.name, f"{expected}-{slug}.md"))
     if not plan:
         print("(simulação) nenhuma mudança necessária: numeração já consistente")
         return 0

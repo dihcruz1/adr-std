@@ -14,11 +14,11 @@ VALID_HEADER = (
     "|:---:|---|:---:|---|:---:|---|\n"
 )
 
-ADR_TEXT = """# ADR-0001: Título de teste
+ADR_TEXT = """# ADR-1: Título de teste
 
 | Campo | Valor |
 |---|---|
-| **ID** | ADR-0001 |
+| **ID** | ADR-1 |
 
 ## Decisão
 
@@ -52,43 +52,43 @@ class CheckRoadmapTest(unittest.TestCase):
         return path
 
     def test_consistent_roadmap_passes(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self.write(
             "ROADMAP.md",
-            VALID_HEADER + "| 1 | Teste | [ADR-0001](0001-titulo.md) | *Pendente* | Não iniciada | — |\n",
+            VALID_HEADER + "| 1 | Teste | [ADR-1](1-titulo.md) | *Pendente* | Não iniciada | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_bad_header_fails(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self.write("ROADMAP.md", "| Coluna errada |\n|---|\n")
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
         self.assertIn("cabeçalho", result.stdout.lower())
 
     def test_adr_without_roadmap_row_fails(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self.write("ROADMAP.md", VALID_HEADER)
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
-        self.assertIn("0001-titulo.md", result.stdout)
+        self.assertIn("1-titulo.md", result.stdout)
 
     def test_adr_without_backlink_fails(self):
-        self.write("0001-titulo.md", ADR_TEXT_NO_BACKLINK)
+        self.write("1-titulo.md", ADR_TEXT_NO_BACKLINK)
         self.write(
             "ROADMAP.md",
-            VALID_HEADER + "| 1 | Teste | [ADR-0001](0001-titulo.md) | *Pendente* | Não iniciada | — |\n",
+            VALID_HEADER + "| 1 | Teste | [ADR-1](1-titulo.md) | *Pendente* | Não iniciada | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
         self.assertIn("Referências", result.stdout)
 
     def test_invalid_status_value_fails(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self.write(
             "ROADMAP.md",
-            VALID_HEADER + "| 1 | Teste | [ADR-0001](0001-titulo.md) | *Pendente* | Em dia | — |\n",
+            VALID_HEADER + "| 1 | Teste | [ADR-1](1-titulo.md) | *Pendente* | Em dia | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
@@ -102,30 +102,30 @@ class CheckRoadmapTest(unittest.TestCase):
         return spec_dir
 
     def test_status_matches_requirements_only(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self._write_spec("minha-spec", {"requirements.md": "# req"})
         self.write(
             "ROADMAP.md",
             VALID_HEADER
-            + "| 1 | Teste | [ADR-0001](0001-titulo.md) | [spec](specs/minha-spec/requirements.md) | Só requisitos | — |\n",
+            + "| 1 | Teste | [ADR-1](1-titulo.md) | [spec](specs/minha-spec/requirements.md) | Só requisitos | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_status_outdated_after_design_is_detected(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self._write_spec("minha-spec", {"requirements.md": "# req", "design.md": "# design"})
         self.write(
             "ROADMAP.md",
             VALID_HEADER
-            + "| 1 | Teste | [ADR-0001](0001-titulo.md) | [spec](specs/minha-spec/requirements.md) | Só requisitos | — |\n",
+            + "| 1 | Teste | [ADR-1](1-titulo.md) | [spec](specs/minha-spec/requirements.md) | Só requisitos | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
         self.assertIn("Em andamento", result.stdout)
 
     def test_status_outdated_after_all_tasks_done_is_detected(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self._write_spec(
             "minha-spec",
             {
@@ -137,20 +137,43 @@ class CheckRoadmapTest(unittest.TestCase):
         self.write(
             "ROADMAP.md",
             VALID_HEADER
-            + "| 1 | Teste | [ADR-0001](0001-titulo.md) | [spec](specs/minha-spec/requirements.md) | Em andamento | — |\n",
+            + "| 1 | Teste | [ADR-1](1-titulo.md) | [spec](specs/minha-spec/requirements.md) | Em andamento | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 1)
         self.assertIn("Concluída", result.stdout)
 
     def test_pending_spec_is_ignored_for_status_heuristic(self):
-        self.write("0001-titulo.md", ADR_TEXT)
+        self.write("1-titulo.md", ADR_TEXT)
         self.write(
             "ROADMAP.md",
-            VALID_HEADER + "| 1 | Teste | [ADR-0001](0001-titulo.md) | *Pendente* | Não iniciada | — |\n",
+            VALID_HEADER + "| 1 | Teste | [ADR-1](1-titulo.md) | *Pendente* | Não iniciada | — |\n",
         )
         result = run(str(self.tmp))
         self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_adr_without_padding_and_without_row_fails(self):
+        self.write("1-a.md", ADR_TEXT)
+        self.write("ROADMAP.md", VALID_HEADER)
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("1-a.md", result.stdout)
+
+    def test_custom_name_pattern_recognizes_padded_adr(self):
+        self.write("0001-a.md", ADR_TEXT)
+        self.write("ROADMAP.md", VALID_HEADER)
+        default = run(str(self.tmp))
+        self.assertEqual(default.returncode, 0, default.stdout)
+        result = run(str(self.tmp), "--name-pattern", r"^(\d{4})-.+\.md$")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("0001-a.md", result.stdout)
+
+    def test_invalid_name_pattern_exits_2_without_traceback(self):
+        self.write("ROADMAP.md", VALID_HEADER)
+        result = run(str(self.tmp), "--name-pattern", "(")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("check_roadmap: --name-pattern inválido:", result.stderr)
+        self.assertNotIn("Traceback", result.stderr)
 
 
 if __name__ == "__main__":
