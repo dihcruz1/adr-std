@@ -272,7 +272,7 @@ install_to() { # pasta de destino
 choose_agents() {
   local tty="${ADR_STD_TTY:-/dev/tty}" line tok i
   local -a found
-  mapfile -t found < <(detected_ids)
+  found=(); while IFS= read -r _line; do found+=("$_line"); done < <(detected_ids)
   [ ${#found[@]} -gt 0 ] || die 3 "nenhum agente encontrado neste computador. Indique com --agent (veja: adr-std agents)"
   if ! { exec 3<"$tty"; } 2>/dev/null; then
     die 3 "sem terminal para o menu. Indique os agentes com --agent (ex.: --agent claude-code) ou use --all"
@@ -329,24 +329,25 @@ cmd_install() {
   parse_args "$@"
   [ -f "$SRC/skill/SKILL.md" ] || die 1 "skill não encontrada em $SRC/skill"
   if [ "$ALL" -eq 1 ]; then
-    mapfile -t AGENTS < <(detected_ids)
+    AGENTS=(); while IFS= read -r _line; do AGENTS+=("$_line"); done < <(detected_ids)
     [ ${#AGENTS[@]} -gt 0 ] || die 3 "nenhum agente encontrado neste computador. Veja: adr-std agents"
   fi
   [ ${#AGENTS[@]} -gt 0 ] || choose_agents
 
   local id dest
-  local -A done_targets=()
+  local done_targets=" "
   for id in "${AGENTS[@]}"; do
     dest="$(target_for "$id")"
     is_detected "$id" || echo "  ! $id não foi encontrado neste computador; instalando mesmo assim"
-    if [ -z "${done_targets[$dest]:-}" ]; then
-      done_targets[$dest]=1
+    case "$done_targets" in *" $dest "*) ;; *)
+      done_targets="$done_targets$dest "
       if [ "$DRY" -eq 1 ]; then
         echo "  (simulação) instalaria adr-std $(version) em $dest"
       else
         install_to "$dest" || return $?
       fi
-    fi
+      ;;
+    esac
     [ "$DRY" -eq 1 ] || state_add_agent "$id" "$dest"
   done
   install_commands
@@ -372,7 +373,7 @@ cmd_uninstall() {
   parse_args "$@"
   local id dest
   if [ ${#AGENTS[@]} -eq 0 ]; then
-    mapfile -t AGENTS < <(state_agents | cut -f1)
+    AGENTS=(); while IFS= read -r _line; do AGENTS+=("$_line"); done < <(state_agents | cut -f1)
   fi
   [ ${#AGENTS[@]} -gt 0 ] || { echo "Nada a remover: nenhum agente registrado."; return 0; }
   for id in "${AGENTS[@]}"; do
@@ -398,7 +399,7 @@ cmd_uninstall() {
 cmd_update() {
   parse_args "$@"
   local -a ids=()
-  mapfile -t ids < <(state_agents | cut -f1)
+  ids=(); while IFS= read -r _line; do ids+=("$_line"); done < <(state_agents | cut -f1)
   local id
   for id in "${AGENTS[@]+"${AGENTS[@]}"}"; do
     printf '%s\n' "${ids[@]+"${ids[@]}"}" | grep -qxF -- "$id" || ids+=("$id")
@@ -538,7 +539,7 @@ pick_agent() {
     die 3 "sem terminal interativo para escolher o agente. Indique com --agent (ex.: --agent claude-code) ou defina um padrão: adr-std config agent <nome>"
   fi
   local -a found
-  mapfile -t found < <(eligible_agents)
+  found=(); while IFS= read -r _line; do found+=("$_line"); done < <(eligible_agents)
   if [ ${#found[@]} -eq 0 ]; then
     exec 3<&-
     die 3 "nenhum agente com a skill instalada abre pelo terminal. Instale com: adr-std install <agente> (agentes: $(launchable_ids | tr '\n' ' '))"
