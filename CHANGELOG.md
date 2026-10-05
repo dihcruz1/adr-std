@@ -5,6 +5,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [2.0.1] - 2026-10-05
+
+### Corrigido
+- Teste Pester do `help` do `migrate` lia só a linha do comando e não a linha de continuação com `--exclude`; isso
+  reprovou o job Windows do CI e impediu a publicação da v2.0.0. Sem mudança de comportamento da CLI.
+
 ## [2.0.0] - 2026-10-03
 
 ### Alterado (quebra de compatibilidade)
