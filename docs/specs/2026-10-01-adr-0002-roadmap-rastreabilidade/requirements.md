@@ -4,7 +4,7 @@
 |---|---|
 | **Data** | 2026-10-01 |
 | **ADR de origem** | [ADR-2](../../architecture/ADR/2-roadmap-rastreabilidade-etapas-specs.md) |
-| **Status** | Gate 1 |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-01 |
 
 ## Contexto
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Data** | 2026-10-03 |
 | **ADR de origem** | [ADR-4](../../architecture/ADR/4-numeracao-dos-adrs-sem-zeros-a-esquerda.md) (Proposto) |
-| **Status** | Gate 1 |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-03 |
 | **Depende de** | v1.4 (CLI e verificadores atuais) |
 
 ## 1. Contexto
@@ -260,9 +260,11 @@ Comportamentos atuais que devem permanecer, com o teste que os protege:
 
 ## 9. Itens para confirmação
 
-- D-07: subir para **2.0.0** (quebra do padrão por omissão). Alternativa: 1.5.0 com aviso no CHANGELOG. Decisão de produto do solicitante.
-- D-11: o `update` executa a migração em modo plano e só aplica com confirmação interativa. Escolha de segurança, porque renomear arquivos do projeto exige plano e autorização (SKILL.md). Se o solicitante quiser aplicação automática sem confirmação, é uma mudança de SEG-06 e R-07.
-- D-09: nova chave `numbering: padded` no `.adr-std` para projetos que mantêm zeros.
+Decisões de produto adotadas na implementação e no lançamento da v2.0.0 (2026-10-03), com o ADR-4 aprovado (Aceito):
+
+- D-07: versão **2.0.0** (quebra do padrão por omissão). Alternativa descartada: 1.5.0 com aviso no CHANGELOG.
+- D-11: o `update` executa a migração em modo plano e só aplica com confirmação interativa (SEG-06, R-07).
+- D-09: chave `numbering: padded` no `.adr-std` para projetos que mantêm zeros.
 
 ## 10. Fora do escopo
 

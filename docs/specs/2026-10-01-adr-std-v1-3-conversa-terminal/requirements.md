@@ -3,7 +3,7 @@
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-10-01 |
-| **Status** | Gate 1 |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-01 |
 | **Depende de** | v1.2 ([spec](../2026-10-01-adr-std-v1-2-comandos-terminal/)) e v1.1 (comandos de ação no agente) |
 | **Contexto** | [ROADMAP.md](../../../ROADMAP.md), seção "v1.3" |
 
