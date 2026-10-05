@@ -4,7 +4,7 @@
 |---|---|
 | **Requisitos** | [requirements.md](requirements.md) |
 | **ADR de origem** | [ADR-1](../../architecture/ADR/1-caminho-padrao-dos-adrs-e-personalizacao.md) |
-| **Status** | Gate 2 |
+| **Status** | Gate 2 aprovado; concluída em 2026-10-02 |
 
 ## 1. Visão geral
 

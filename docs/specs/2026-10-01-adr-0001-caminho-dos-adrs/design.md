@@ -3,7 +3,7 @@
 | Campo | Detalhe |
 |---|---|
 | **Requisitos** | [requirements.md](requirements.md) |
-| **Status** | Gate 2 |
+| **Status** | Gate 2 aprovado; concluída em 2026-10-01 |
 
 ## Contrato
 

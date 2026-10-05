@@ -4,7 +4,7 @@
 |---|---|
 | **Data** | 2026-10-01 |
 | **ADR de origem** | [ADR-3](../../architecture/ADR/3-atualizacao-automatica-do-roadmap-pelo-agente.md) |
-| **Status** | Gate 1 |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-01 |
 
 ## Contexto
 

@@ -4,7 +4,7 @@
 |---|---|
 | **Data** | 2026-10-02 |
 | **ADR de origem** | [ADR-1](../../architecture/ADR/1-caminho-padrao-dos-adrs-e-personalizacao.md) (etapa 2: `adr-std config path` na CLI) |
-| **Status** | Gate 1 |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-02 |
 | **Depende de** | v1.2 ([spec](../2026-10-01-adr-std-v1-2-comandos-terminal/), leitura da config global já implementada em `resolve_folder`) e v1.3 ([spec](../2026-10-01-adr-std-v1-3-conversa-terminal/), namespace `config` com `config agent`) |
 
 ## 1. Contexto
