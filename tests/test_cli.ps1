@@ -64,7 +64,9 @@ Describe 'version, help e agents' {
     }
     It 'help descreve migrate com --apply e --exclude' {
         $r = Invoke-Cli @('help')
-        $line = ($r.Output -split "`n" | Where-Object { $_ -match '^\s+migrate\b' }) -join ' '
+        $lines = $r.Output -split "`n"
+        $i = [array]::FindIndex($lines, [Predicate[string]]{ param($l) $l -match '^\s+migrate\b' })
+        $line = ($lines[$i], $lines[$i + 1]) -join ' '
         $line | Should -Match '--apply'
         $line | Should -Match '--exclude'
     }
