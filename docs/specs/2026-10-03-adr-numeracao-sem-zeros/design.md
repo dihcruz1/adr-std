@@ -4,7 +4,7 @@
 |---|---|
 | **Requisitos** | [requirements.md](requirements.md) |
 | **ADR de origem** | [ADR-4](../../architecture/ADR/4-numeracao-dos-adrs-sem-zeros-a-esquerda.md) |
-| **Status** | Gate 2 |
+| **Status** | Gate 2 aprovado; concluída em 2026-10-03 |
 
 ## 1. Visão geral
 

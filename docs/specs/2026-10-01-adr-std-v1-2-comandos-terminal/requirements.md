@@ -3,7 +3,7 @@
 | Campo | Detalhe |
 |---|---|
 | **Data** | 2026-10-01 |
-| **Status** | Gate 1 |
+| **Status** | Gate 3 aprovado; concluída em 2026-10-01 |
 | **Depende de** | v1.1 concluída ([spec](../2026-09-30-adr-std-v1-1-comandos-no-agente/)) |
 | **Contexto** | [ROADMAP.md](../../../ROADMAP.md), seção "v1.2"; ADR-1 (caminho dos ADRs) |
 

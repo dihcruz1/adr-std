@@ -124,7 +124,7 @@ Sem requisito órfão nem tarefa sem requisito.
 Pontos de atenção:
 
 - **ADR:** o ADR-4 está `Proposto`. Aprovar (`Aceito`) cabe ao decisor; a spec não depende do status para ser implementada, mas o ROADMAP só marca a etapa 4 como `Concluída` com as tarefas feitas e a evidência registrada.
-- **Confirmações pendentes:** D-07 (versão 2.0.0; alternativa 1.5.0 com aviso, só afeta 6.1), D-11 (o `update` aplica a migração só com confirmação interativa; aplicar sem confirmação mudaria SEG-06 e 3.3) e D-09 (chave `numbering: padded`).
+- **Confirmações (adotadas no lançamento da v2.0.0, 2026-10-03):** D-07 (versão 2.0.0; alternativa 1.5.0 com aviso, só afeta 6.1), D-11 (o `update` aplica a migração só com confirmação interativa; aplicar sem confirmação mudaria SEG-06 e 3.3) e D-09 (chave `numbering: padded`).
 - **Limitação aceita (D-12):** o primeiro `update` a partir da v1.4 não executa a migração; fica registrada no `CHANGELOG.md` e no `README.md` (tarefas 3.3 e 6.1).
 - **Fixture:** a renomeação em 1.1 altera caminhos usados por `tests/test_cli.sh`, `tests/test_cli.ps1`, `CONTRIBUTING.md` e `tests/cenarios.md`; 2.1, 2.3, 3.2 e 3.3 completam o resto desses arquivos.
 - **Ordem da migração do repositório:** a tarefa 5.1 só roda com tudo anterior commitado, porque o script recusa árvore suja; o `CHANGELOG.md` da v2.0 (6.1) é escrito depois, para o script não reescrever a correspondência `ADR-0001..0003` → `ADR-1..3`.
