@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from adr_cli import resolve_folder  # noqa: E402
+from adr_cli import FolderConfigError, repo_root, resolve_folder  # noqa: E402
 
 PREFIX = "adr-std migrate:"
 PADDED_ADR = re.compile(r"^0+(\d+)-([a-z0-9-]+)\.md$")
@@ -144,10 +144,7 @@ def in_git(root: Path) -> bool:
 
 
 def default_root(cwd: Path) -> Path:
-    r = run_git(cwd, "rev-parse", "--show-toplevel")
-    if r and r.returncode == 0 and r.stdout.strip():
-        return Path(r.stdout.strip()).resolve()
-    return cwd.resolve()
+    return repo_root(cwd)
 
 
 def under(path: Path, root: Path) -> bool:
@@ -319,7 +316,11 @@ def main() -> int:
             folder = (root / args.path_arg).resolve()  # relativo à raiz, se não existe no cwd
     else:
         config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-        folder = (root / resolve_folder(None, root, config_home)).resolve()
+        try:
+            folder = resolve_folder(None, root, config_home, root)
+        except FolderConfigError as exc:
+            print(f"{PREFIX} {exc}", file=sys.stderr)
+            return 2
     if not under(folder, root):
         print(f"{PREFIX} a pasta de ADRs ({folder}) está fora da raiz ({root})", file=sys.stderr)
         return 2

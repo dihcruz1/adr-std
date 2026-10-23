@@ -5,6 +5,19 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Corrigido
+- `new`, `list`, `link` e `organize` resolvem a pasta dos ADRs a partir da raiz do repositório (git), e não do diretório
+  atual: executados de uma subpasta, não criam mais a pasta dentro dela, não numeram a partir de 1 nem ignoram o
+  `.adr-std` da raiz. Fora de um repositório (ou sem `git`), a raiz é o diretório atual.
+- O campo `path` do `.adr-std` e da config global, quando relativo, vale contra a raiz do repositório; `--path`
+  relativo continua valendo contra o diretório atual.
+- O `path` do `.adr-std` (arquivo versionado) que aponte para fora da raiz do repositório é recusado (código 2).
+
+### Alterado
+- `new` não cria mais a pasta dos ADRs em silêncio: com a pasta inexistente, sai com código 1 e mensagem com a pasta e a
+  raiz resolvidas. Para o primeiro uso, `adr-std new <título> --create` cria a pasta. `list`, `link` e `organize`
+  saem com código 1 e a mesma mensagem.
+
 ## [2.0.1] - 2026-10-05
 
 ### Corrigido

@@ -23,12 +23,16 @@ Funciona em qualquer agente que leia `SKILL.md`. Documentação e respostas em p
 
 Resolva o caminho onde os ADRs são lidos e gravados nesta ordem (pare na primeira que encontrar):
 
-1. Argumento explícito de pasta passado no comando (ex.: `--path <pasta>`).
-2. Campo `path` no arquivo `.adr-std` na raiz do repositório.
+1. Argumento explícito de pasta passado no comando (ex.: `--path <pasta>`; relativo, vale contra o diretório atual).
+2. Campo `path` no arquivo `.adr-std` na raiz do repositório (relativo, vale contra a raiz; fora dela é recusado).
 3. Convenção declarada em `docs/architecture/ADR/CONVENTIONS.md` ou em `AGENTS.md`.
 4. Campo `path` em `~/.config/adr-std/config` (Linux/macOS) ou `%APPDATA%\adr-std\config` (Windows).
    O usuário pode gravar esse nível pela CLI com `adr-std config path <pasta>` (mostra sem argumento, `--unset` remove).
-5. **Padrão:** `docs/architecture/ADR/`
+5. **Padrão:** `docs/architecture/ADR/` na raiz do repositório.
+
+A raiz é a do repositório git (`git rev-parse --show-toplevel`); fora de um repositório, ou sem `git`, é o diretório
+atual. Rode a CLI da raiz ou use `--path` absoluto quando não houver `git`. Se a pasta dos ADRs não existir,
+`adr-std new` falha com a pasta e a raiz resolvidas; no primeiro uso, `adr-std new <título> --create` cria a pasta.
 
 ### ROADMAP.md (atualização automática)
 

@@ -274,8 +274,11 @@ adr-std install --all                    # todos os encontrados
 
 > Nota: o primeiro `adr-std update` a partir da v1.4 usa o wrapper antigo e não executa a migração; rode `adr-std update` de novo ou `adr-std migrate`.
 
-`new`, `list`, `link` e `organize` aceitam `--path PASTA` e `--name-pattern REGEX`. Sem `--path`, a pasta vem de
-`.adr-std` (campo `path`), depois da config global e, por fim, `docs/architecture/ADR`. A config global
+`new`, `list`, `link` e `organize` aceitam `--path PASTA` e `--name-pattern REGEX`; `new` aceita também `--create`.
+Sem `--path`, a pasta vem de `.adr-std` na raiz do repositório (campo `path`), depois da config global e, por fim,
+`docs/architecture/ADR`. A raiz é a do repositório git (fora de um, ou sem `git`, é o diretório atual); `path` relativo
+vale contra a raiz, e `--path` relativo, contra o diretório atual. Se a pasta não existir, `new` falha com a pasta e a
+raiz resolvidas; `new --create` cria a pasta no primeiro uso. A config global
 (`~/.config/adr-std/config` ou `%APPDATA%\adr-std\config`) é editável pela CLI com `adr-std config path`.
 | `adr-std version` · `adr-std help` | Versão e ajuda |
 

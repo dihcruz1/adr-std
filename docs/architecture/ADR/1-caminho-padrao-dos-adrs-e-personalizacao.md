@@ -6,7 +6,7 @@
 | **Status** | Aceito |
 | **Data da decisão** | 2026-10-01 |
 | **Aprovado em** | 2026-10-01 |
-| **Modificado em** | 2026-10-03 |
+| **Modificado em** | 2026-10-22 |
 | **Decisores** | Diego (solicitante) |
 | **Autoridade que aprova** | Diego (solicitante) |
 | **Stakeholders afetados** | Mantenedores da skill adr-std; usuários finais (arquitetos e devs que criam ADRs); agentes de IA que usam a skill; colaboradores e contribuidores do repositório |
@@ -81,7 +81,8 @@ A Opção 1 (padrão fixo) resolve o caso simples mas cria atrito desnecessário
 
 ## Verificação
 
-- O agente cria o ADR em `docs/architecture/ADR/` quando não há `.adr-std` nem config global.
+- O agente cria o ADR em `docs/architecture/ADR/` da raiz do repositório quando não há `.adr-std` nem config global.
+- A CLI (`new`, `list`, `link`, `organize`) resolve a pasta a partir da raiz do repositório (git; fora dele, o diretório atual), qualquer que seja o diretório de execução; `path` relativo vale contra a raiz, `--path` relativo contra o diretório atual, e o `path` do `.adr-std` fora da raiz é recusado.
 - O agente respeita o `path` definido em `.adr-std` na raiz do projeto, criando ADRs na pasta indicada.
 - O agente respeita a config global em `~/.config/adr-std/config` quando não há `.adr-std` local.
 - O argumento explícito de pasta (quando aplicável) sobrescreve todas as configurações.
@@ -91,6 +92,8 @@ A Opção 1 (padrão fixo) resolve o caso simples mas cria atrito desnecessário
 
 Nenhuma opção de personalização de escopo de workspace (por exemplo, variável de ambiente por sessão) foi avaliada; caso necessária, exige nova decisão. A implementação do `adr-std config` na CLI foi entregue nas specs da v1.2 (leitura) e da v1.4 (`config path`) e não é detalhada aqui.
 
+A raiz do repositório é determinada por `git rev-parse --show-toplevel` (critério único, sem busca heurística pela pasta dos ADRs); sem `git` ou fora de um repositório, o diretório atual faz o papel de raiz, e a execução de uma subpasta nessas condições exige rodar da raiz ou usar `--path` absoluto. Em repositório aninhado ou submódulo vale a raiz do repositório mais interno. A pasta inexistente não é criada em silêncio: `adr-std new` falha, e `--create` cria no primeiro uso.
+
 ## Histórico de modificações
 
 | Data | Alteração | Autor |
@@ -98,6 +101,7 @@ Nenhuma opção de personalização de escopo de workspace (por exemplo, variáv
 | 2026-10-01 | Criação | Diego |
 | 2026-10-01 | Aprovação (Status: Aceito) | Diego |
 | 2026-10-03 | Atualização editorial: referências de versão da CLI (`config path` entregue na v1.4); decisão inalterada | Diego |
+| 2026-10-22 | Emenda à Verificação e às Limitações: raiz do repositório via git, regra de `--path` relativo e `--create`; decisão inalterada | Diego |
 | 2026-10-03 | Renumeração ADR-0001 → ADR-1 conforme ADR-4; texto da decisão inalterado | Diego |
 
 ## Referências
