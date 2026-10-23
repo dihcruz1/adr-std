@@ -425,6 +425,13 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(p.exists("decisoes/3-c.md"))
 
+    def test_adr_std_path_outside_root_exits_2(self):
+        p = Project(self, {".adr-std": "path: ../fora\n"})
+        with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(p.root / "cfg")}):
+            code, _, err = run_main([], p.root)
+        self.assertEqual(code, 2)
+        self.assertIn("fora da raiz", err)
+
     def test_root_option_and_git_toplevel(self):
         p = Project(self, BASE, use_git=True)
         (p.root / "sub").mkdir()

@@ -222,16 +222,27 @@ Describe 'comandos de ação (v1.1)' {
 Describe 'new, list, link e organize (v1.2)' -Skip:(-not (Get-Command python -ErrorAction SilentlyContinue) -and -not (Get-Command python3 -ErrorAction SilentlyContinue) -and -not (Get-Command py -ErrorAction SilentlyContinue)) {
     It 'new e list criam e listam o ADR' {
         $dir = Join-Path $Tmp 'adrs'
-        $r = Invoke-Cli @('new', 'Usar fila', '--path', $dir)
+        $r = Invoke-Cli @('new', 'Usar fila', '--path', $dir, '--create')
         $r.Code | Should -Be 0
         Test-Path (Join-Path $dir '1-usar-fila.md') | Should -BeTrue
         $l = Invoke-Cli @('list', '--path', $dir)
         $l.Output | Should -Match 'Usar fila'
         $l.Output | Should -Match 'Proposto'
     }
+    It 'new de subpasta de repositório grava na pasta de ADRs da raiz' {
+        $repo = Join-Path $Tmp 'repo-raiz'
+        $sub = Join-Path $repo 'docs/architecture/ADR'
+        New-Item -ItemType Directory -Path $sub -Force | Out-Null
+        git init -q $repo
+        Push-Location $sub
+        try { $r = Invoke-Cli @('new', 'Da subpasta') } finally { Pop-Location }
+        $r.Code | Should -Be 0
+        Test-Path (Join-Path $sub '1-da-subpasta.md') | Should -BeTrue
+        Test-Path (Join-Path $sub 'docs') | Should -BeFalse
+    }
     It 'link grava a relação recíproca e organize --dry-run mostra o plano' {
         $dir = Join-Path $Tmp 'adrs'
-        Invoke-Cli @('new', 'Um', '--path', $dir) | Out-Null
+        Invoke-Cli @('new', 'Um', '--path', $dir, '--create') | Out-Null
         Invoke-Cli @('new', 'Dois', '--path', $dir) | Out-Null
         (Invoke-Cli @('link', 'ADR-1', 'restringe', 'ADR-2', '--path', $dir)).Code | Should -Be 0
         Get-Content -Raw -Encoding UTF8 (Join-Path $dir '2-dois.md') | Should -Match 'é restringido por ADR-1'

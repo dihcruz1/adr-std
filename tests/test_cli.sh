@@ -635,7 +635,7 @@ test_cli_migrate_apply() {
 
 test_cli_new_list() {
   local out
-  out="$("$CLI" new "Usar fila" --path adrs)" || fail "new falhou" || return 1
+  out="$("$CLI" new "Usar fila" --path adrs --create)" || fail "new falhou" || return 1
   assert_contains "$out" "1-usar-fila.md" || return 1
   assert_file adrs/1-usar-fila.md || return 1
   out="$("$CLI" list --path adrs)" || fail "list falhou" || return 1
@@ -644,7 +644,7 @@ test_cli_new_list() {
 }
 
 test_cli_link_organize() {
-  "$CLI" new "Um" --path adrs >/dev/null && "$CLI" new "Dois" --path adrs >/dev/null || return 1
+  "$CLI" new "Um" --path adrs --create >/dev/null && "$CLI" new "Dois" --path adrs >/dev/null || return 1
   "$CLI" link ADR-1 restringe ADR-2 --path adrs >/dev/null || fail "link falhou" || return 1
   grep -qF 'é restringido por ADR-1' adrs/2-dois.md || fail "relação recíproca ausente" || return 1
   mv adrs/2-dois.md adrs/5-dois.md

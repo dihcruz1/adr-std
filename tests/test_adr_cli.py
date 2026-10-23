@@ -6,6 +6,7 @@ import subprocess
 import sys
 import tempfile
 import unittest
+import unittest.mock
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -33,6 +34,16 @@ class CliTestCase(unittest.TestCase):
 
     def read(self, name: str) -> str:
         return (self.adrs / name).read_text(encoding="utf-8")
+
+    def env(self) -> dict:
+        """Ambiente sem config global do usuário."""
+        return {**os.environ, "XDG_CONFIG_HOME": str(self.root / "nocfg")}
+
+    def git_repo(self) -> Path:
+        repo = self.root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        return repo
 
 
 class NewTest(CliTestCase):
@@ -80,7 +91,7 @@ class NewTest(CliTestCase):
 
     def test_creates_missing_folder(self) -> None:
         target = self.root / "novo" / "adr"
-        r = run("new", "A", "--path", str(target))
+        r = run("new", "A", "--path", str(target), "--create")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((target / "1-a.md").exists())
 
@@ -119,7 +130,7 @@ class NewTest(CliTestCase):
     def test_incompatible_active_pattern_does_not_create_missing_folder(self) -> None:
         target = self.root / "novo" / "adr"
         pattern = r"^(\d{4})-[a-z0-9-]+\.md$"
-        r = run("new", "A", "--path", str(target), "--name-pattern", pattern)
+        r = run("new", "A", "--path", str(target), "--create", "--name-pattern", pattern)
         self.assertEqual(r.returncode, 1)
         self.assertIn(pattern, r.stderr)
         self.assertFalse(target.exists())
@@ -144,7 +155,7 @@ class ListTest(CliTestCase):
     def test_missing_folder_is_error_1(self) -> None:
         r = run("list", "--path", str(self.root / "nao-existe"))
         self.assertEqual(r.returncode, 1)
-        self.assertIn("pasta não encontrada", r.stderr)
+        self.assertIn("pasta de ADRs não encontrada", r.stderr)
 
     def test_empty_folder_is_ok(self) -> None:
         r = run("list", "--path", str(self.adrs))
@@ -202,24 +213,237 @@ class ResolveFolderTest(CliTestCase):
         (cfg_home / "adr-std" / "config").write_text("path = global/dir\n", encoding="utf-8")
         proj = self.root / "proj"
         proj.mkdir()
-        self.assertEqual(adr_cli.resolve_folder(None, proj, cfg_home), Path("global/dir"))
+        self.assertEqual(adr_cli.resolve_folder(None, proj, cfg_home, proj), proj / "global" / "dir")
         (proj / ".adr-std").write_text("path: local/dir\n", encoding="utf-8")
-        self.assertEqual(adr_cli.resolve_folder(None, proj, cfg_home), Path("local/dir"))
-        self.assertEqual(adr_cli.resolve_folder("flag/dir", proj, cfg_home), Path("flag/dir"))
+        self.assertEqual(adr_cli.resolve_folder(None, proj, cfg_home, proj), proj / "local" / "dir")
+        self.assertEqual(adr_cli.resolve_folder("flag/dir", proj, cfg_home, proj), proj / "flag" / "dir")
 
     def test_default(self) -> None:
         self.assertEqual(
-            adr_cli.resolve_folder(None, self.root, self.root / "cfg"), Path("docs/architecture/ADR")
+            adr_cli.resolve_folder(None, self.root, self.root / "cfg", self.root),
+            self.root / "docs" / "architecture" / "ADR",
         )
+
+    def test_path_arg_is_relative_to_cwd_and_absolute_is_exact(self) -> None:
+        root, sub = self.root / "proj", self.root / "proj" / "sub"
+        sub.mkdir(parents=True)
+        cfg = self.root / "cfg"
+        self.assertEqual(adr_cli.resolve_folder("x", sub, cfg, root), sub / "x")
+        outside = self.root / "fora"
+        self.assertEqual(adr_cli.resolve_folder(str(outside), sub, cfg, root), outside)
+
+    def test_global_config_relative_path_is_relative_to_root(self) -> None:
+        root, sub = self.root / "proj", self.root / "proj" / "sub"
+        sub.mkdir(parents=True)
+        cfg = self.root / "cfg"
+        (cfg / "adr-std").mkdir(parents=True)
+        (cfg / "adr-std" / "config").write_text("path = g/adrs\n", encoding="utf-8")
+        self.assertEqual(adr_cli.resolve_folder(None, sub, cfg, root), root / "g" / "adrs")
+
+    def test_adr_std_path_outside_root_is_rejected(self) -> None:
+        root = self.root / "proj"
+        root.mkdir()
+        cfg = self.root / "cfg"
+        for value in ("../x", str(self.root / "fora")):
+            (root / ".adr-std").write_text(f"path: {value}\n", encoding="utf-8")
+            with self.assertRaises(adr_cli.FolderConfigError):
+                adr_cli.resolve_folder(None, root, cfg, root)
+
+    def test_adr_std_absolute_path_inside_root_is_accepted(self) -> None:
+        root = self.root / "proj"
+        root.mkdir()
+        (root / ".adr-std").write_text(f"path: {root / 'dentro'}\n", encoding="utf-8")
+        self.assertEqual(adr_cli.resolve_folder(None, root, self.root / "cfg", root), root / "dentro")
+
+    def test_global_config_and_path_arg_may_leave_root(self) -> None:
+        root = self.root / "proj"
+        root.mkdir()
+        cfg = self.root / "cfg"
+        (cfg / "adr-std").mkdir(parents=True)
+        (cfg / "adr-std" / "config").write_text("path = ../g\n", encoding="utf-8")
+        self.assertEqual(adr_cli.resolve_folder(None, root, cfg, root), self.root / "g")
+        self.assertEqual(adr_cli.resolve_folder("../y", root, cfg, root), self.root / "y")
 
     def test_cli_uses_dot_adr_std_in_cwd(self) -> None:
         proj = self.root / "proj"
-        proj.mkdir()
+        (proj / "meus-adrs").mkdir(parents=True)
         (proj / ".adr-std").write_text("path = meus-adrs\n", encoding="utf-8")
-        env = {**os.environ, "XDG_CONFIG_HOME": str(self.root / "nocfg")}
-        r = run("new", "Algo", cwd=proj, env=env)
+        r = run("new", "Algo", cwd=proj, env=self.env())
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertTrue((proj / "meus-adrs" / "1-algo.md").exists())
+
+
+class RepoRootTest(CliTestCase):
+    def test_git_subdir_returns_toplevel(self) -> None:
+        repo = self.git_repo()
+        sub = repo / "docs" / "architecture" / "ADR"
+        sub.mkdir(parents=True)
+        self.assertEqual(adr_cli.repo_root(sub), repo.resolve())
+
+    def test_outside_git_returns_cwd(self) -> None:
+        plain = self.root / "avulsa"
+        plain.mkdir()
+        self.assertEqual(adr_cli.repo_root(plain), plain.resolve())
+
+    def test_without_git_in_path_returns_cwd(self) -> None:
+        repo = self.git_repo()
+        with unittest.mock.patch.dict(os.environ, {"PATH": str(self.root / "vazio")}):
+            self.assertEqual(adr_cli.repo_root(repo), repo.resolve())
+
+    def test_nested_repository_uses_innermost_root(self) -> None:
+        outer = self.git_repo()
+        inner = outer / "vendor" / "lib"
+        inner.mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(inner)], check=True)
+        self.assertEqual(adr_cli.repo_root(inner), inner.resolve())
+
+
+class SubdirTest(CliTestCase):
+    """Defeito: de subpasta, a pasta dos ADRs era resolvida contra o cwd (RF-01 a RF-05)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo = self.git_repo()
+        self.default = self.repo / "docs" / "architecture" / "ADR"
+        self.default.mkdir(parents=True)
+        self.sub = self.default
+        self.env_ = self.env()
+
+    def test_new_from_subdir_without_config_uses_root_default(self) -> None:
+        r = run("new", "Segundo", cwd=self.sub, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.default / "1-segundo.md").exists())
+        self.assertFalse((self.sub / "docs").exists())
+
+    def test_new_numbers_after_existing_adrs_from_subdir(self) -> None:
+        (self.default / "10-existente.md").write_text("# ADR-10: Existente\n", encoding="utf-8")
+        r = run("new", "Proximo", cwd=self.sub, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.default / "11-proximo.md").exists())
+
+    def test_new_from_subdir_honors_adr_std_at_root(self) -> None:
+        (self.repo / "meus-adrs").mkdir()
+        (self.repo / ".adr-std").write_text("path: meus-adrs\n", encoding="utf-8")
+        r = run("new", "Segundo", cwd=self.sub, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.repo / "meus-adrs" / "1-segundo.md").exists())
+
+    def test_path_arg_relative_is_relative_to_cwd(self) -> None:
+        (self.sub / "outra").mkdir()
+        r = run("new", "Rel", "--path", "outra", cwd=self.sub, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.sub / "outra" / "1-rel.md").exists())
+
+    def test_path_arg_absolute_is_exact_from_any_cwd(self) -> None:
+        r = run("new", "Abs", "--path", str(self.adrs), cwd=self.sub, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.adrs / "1-abs.md").exists())
+
+    def test_list_link_and_organize_operate_on_root_folder_from_subdir(self) -> None:
+        run("new", "Um", cwd=self.repo, env=self.env_)
+        run("new", "Dois", cwd=self.repo, env=self.env_)
+        sub = self.default
+        listed = run("list", cwd=sub, env=self.env_)
+        self.assertEqual(listed.returncode, 0, listed.stderr)
+        self.assertIn("ADR-2", listed.stdout)
+        linked = run("link", "ADR-1", "restringe", "ADR-2", cwd=sub, env=self.env_)
+        self.assertEqual(linked.returncode, 0, linked.stderr)
+        org = run("organize", "--dry-run", cwd=sub, env=self.env_)
+        self.assertEqual(org.returncode, 0, org.stderr)
+        self.assertIn("consistente", org.stdout)
+
+    def test_outside_git_uses_cwd_as_root(self) -> None:
+        plain = self.root / "avulsa"
+        (plain / "docs" / "architecture" / "ADR").mkdir(parents=True)
+        r = run("new", "Solto", cwd=plain, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((plain / "docs" / "architecture" / "ADR" / "1-solto.md").exists())
+
+    def test_nested_repository_uses_innermost_root(self) -> None:
+        inner = self.repo / "vendor" / "lib"
+        (inner / "docs" / "architecture" / "ADR").mkdir(parents=True)
+        subprocess.run(["git", "init", "-q", str(inner)], check=True)
+        r = run("new", "Interno", cwd=inner, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((inner / "docs" / "architecture" / "ADR" / "1-interno.md").exists())
+
+    def test_global_config_relative_path_is_relative_to_root(self) -> None:
+        cfg = self.root / "cfg"
+        (cfg / "adr-std").mkdir(parents=True)
+        (cfg / "adr-std" / "config").write_text("path = global-adrs\n", encoding="utf-8")
+        (self.repo / "global-adrs").mkdir()
+        r = run("new", "G", cwd=self.sub, env={**self.env_, "XDG_CONFIG_HOME": str(cfg)})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.repo / "global-adrs" / "1-g.md").exists())
+
+
+class MissingFolderTest(CliTestCase):
+    """RF-06 a RF-08: pasta inexistente nunca é criada em silêncio."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo = self.git_repo()
+        self.env_ = self.env()
+        self.default = self.repo / "docs" / "architecture" / "ADR"
+
+    def test_new_fails_without_creating_anything(self) -> None:
+        r = run("new", "Primeiro", cwd=self.repo, env=self.env_)
+        self.assertEqual(r.returncode, 1)
+        self.assertIn("pasta de ADRs não encontrada", r.stderr)
+        self.assertIn(str(self.default), r.stderr)
+        self.assertIn("--create", r.stderr)
+        self.assertFalse((self.repo / "docs").exists())
+
+    def test_new_create_makes_folder_and_numbers_from_one(self) -> None:
+        r = run("new", "Primeiro", "--create", cwd=self.repo, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.default / "1-primeiro.md").exists())
+
+    def test_existing_empty_folder_numbers_from_one(self) -> None:
+        self.default.mkdir(parents=True)
+        r = run("new", "Primeiro", cwd=self.repo, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((self.default / "1-primeiro.md").exists())
+
+    def test_other_commands_fail_with_same_message_without_create_hint(self) -> None:
+        for args in (("list",), ("link", "ADR-1", "restringe", "ADR-2"), ("organize", "--dry-run")):
+            with self.subTest(args=args):
+                r = run(*args, cwd=self.repo, env=self.env_)
+                self.assertEqual(r.returncode, 1)
+                self.assertIn("pasta de ADRs não encontrada", r.stderr)
+                self.assertNotIn("--create", r.stderr)
+
+
+class OutsideRootTest(CliTestCase):
+    """SEG-01: `.adr-std` versionado não pode apontar para fora da raiz."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.repo = self.git_repo()
+        self.env_ = self.env()
+
+    def test_adr_std_outside_root_is_refused_and_nothing_written(self) -> None:
+        alvo = self.root / "fora"
+        alvo.mkdir()
+        for value in ("../fora", str(alvo)):
+            with self.subTest(value=value):
+                (self.repo / ".adr-std").write_text(f"path: {value}\n", encoding="utf-8")
+                r = run("new", "X", "--create", cwd=self.repo, env=self.env_)
+                self.assertEqual(r.returncode, 2)
+                self.assertIn("fora da raiz", r.stderr)
+                self.assertEqual(list(alvo.iterdir()), [])
+
+    def test_path_arg_and_global_config_may_point_outside_root(self) -> None:
+        alvo = self.root / "livre"
+        alvo.mkdir()
+        r = run("new", "A", "--path", str(alvo), cwd=self.repo, env=self.env_)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        cfg = self.root / "cfg"
+        (cfg / "adr-std").mkdir(parents=True)
+        (cfg / "adr-std" / "config").write_text(f"path = {alvo}\n", encoding="utf-8")
+        r = run("new", "B", cwd=self.repo, env={**self.env_, "XDG_CONFIG_HOME": str(cfg)})
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertTrue((alvo / "2-b.md").exists())
 
 
 class LinkTest(CliTestCase):
