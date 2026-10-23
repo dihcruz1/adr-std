@@ -1,2 +1,5 @@
 __pycache__/
 *.pyc
+
+# --- Instruções locais do agente ---
+CLAUDE.md
