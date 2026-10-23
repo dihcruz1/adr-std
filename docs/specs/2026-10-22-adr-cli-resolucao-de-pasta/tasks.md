@@ -82,8 +82,8 @@ Convenção: cada tarefa de código segue RED → GREEN → REFACTOR. Comandos r
 
 - [x] 6.1 Suíte completa: `python3 -m pytest tests -q`, `bash tests/test_cli.sh`, `bash tests/gate.sh static`.
   - Evidência: `python3 -m pytest tests -q` → `135 passed, 10 subtests passed`; `bash tests/test_cli.sh` → `72 passaram, 0 falharam` (os dois casos que usavam `new` sem pasta passaram a usar `--create`); `bash tests/gate.sh static` → `Gate static: ok`.
-- [ ] 6.2 Pester no CI Windows: `E2E/Pester não executado` até haver push autorizado; registrar estado e impacto. Concluir só com o job verde.
-  - Evidência: o job do CI Windows não foi executado (exige push, que depende de autorização pontual). Cobertura parcial no lugar: Pester no Linux (4.1). Pendente: confirmar no job Windows após o push autorizado.
+- [x] 6.2 Pester no CI Windows: `E2E/Pester não executado` até haver push autorizado; registrar estado e impacto. Concluir só com o job verde.
+  - Evidência: PR https://github.com/dihcruz1/adr-std/pull/1, [run 39885417688](https://github.com/dihcruz1/adr-std/actions/runs/39885417688) no SHA 5ec0024: Gate de segurança, Testes (ubuntu-latest), Testes (macos-latest) e Testes (Windows) `SUCCESS`; Publicar release `SKIPPED` (só roda em tag).
 - [x] 6.3 Auditoria da implementação contra os três arquivos: cobertura por requisito (RF-01…RF-10, SEG-01…03, matriz), testes executados, discrepâncias e pendências (inclui a divergência do `--path` relativo do `migrate` e o limite sem `git`), registrada ao final deste arquivo.
   - Evidência: seção "Auditoria da implementação" abaixo.
 
@@ -146,12 +146,12 @@ E2E real (CLI, sem navegador; E2E de navegador N/A): reprodução do briefing em
 | SEG-03 | repositórios temporários; sem push, release ou deploy | Atendido |
 | RF-12 | `test_relative_path_is_relative_to_cwd_only` | Atendido |
 | RF-11 | `test_pending_task_after_title_and_done_tasks_is_in_progress`; ROADMAP consistente | Atendido |
-| Matriz, linha Windows (Pester) | Pester no Linux (RED/GREEN do caso e suíte 49 aprovados); job Windows não executado | Parcial (6.2) |
+| Matriz, linha Windows (Pester) | Pester no Linux (RED/GREEN do caso e suíte 49 aprovados) e job Windows do CI verde (run 39885417688) | Atendido |
 
 Testes executados: `python3 -m pytest tests -q` → 137 passed, 10 subtests; `bash tests/test_cli.sh` → 72 passaram; `bash tests/gate.sh static` → ok.
 
 Discrepâncias e pendências:
-- **CI Windows não executado**: o Pester rodou localmente no Linux (PowerShell 7.6.8, Pester 6.2.0), mas a evidência no Windows exige push, que depende de autorização pontual. 6.2 segue aberta; a spec não pode ser dada como concluída até o job Windows ficar verde.
+- **CI Windows**: verde no run 39885417688 (SHA 5ec0024), além do Pester local no Linux (PowerShell 7.6.8, Pester 6.2.0). 6.2 concluída.
 - `check_roadmap.py`: defeito de `TASK_LINE` corrigido nesta spec (RF-11, tarefa 7.1).
 - D-8 revisada: o `--path` relativo do `migrate` agora vale só contra o `cwd` (RF-12, tarefa 8.1); sem divergência.
 - Limite documentado (D-9): sem `git`, de uma subpasta, vale o `cwd`; rodar da raiz ou usar `--path` absoluto.
