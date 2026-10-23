@@ -86,6 +86,10 @@ Pester (`tests/test_cli.ps1`): um caso `new` a partir de subpasta de repositóri
 
 Validação do conjunto: `python3 -m pytest tests`, `bash tests/test_cli.sh`, `bash tests/gate.sh static`.
 
+## Correção correlata (RF-11)
+
+`skill/scripts/check_roadmap.py`: `TASK_LINE` passa a `re.MULTILINE`. Teste: spec com título, tarefa concluída e tarefa pendente deve exigir `Em andamento` no ROADMAP. Verificado que as demais specs vinculadas ao ROADMAP seguem consistentes após a correção.
+
 ## Documentação a alinhar
 
 - `skill/SKILL.md` (Caminho dos ADRs): raiz via git, relativo à raiz no `.adr-std`/config, `--path` relativo ao `cwd`, `--create`, limite sem git (rodar da raiz ou `--path` absoluto).

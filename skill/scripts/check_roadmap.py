@@ -38,7 +38,7 @@ EXPECTED_HEADER_COLUMNS = [
     "Evidência / Validação",
 ]
 TABLE_ROW = re.compile(r"^\|(.+)\|\s*$")
-TASK_LINE = re.compile(r"^- \[([ x])\]\s+\S")
+TASK_LINE = re.compile(r"^- \[([ x])\]\s+\S", re.MULTILINE)
 
 
 def split_row(line: str) -> list[str]:

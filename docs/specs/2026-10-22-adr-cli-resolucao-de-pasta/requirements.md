@@ -39,8 +39,9 @@ Os testes `ResolveFolderTest.test_default` e `test_cli_uses_dot_adr_std_in_cwd` 
 - **RF-06:** QUANDO a pasta resolvida não existir, `new` DEVE terminar com código 1 (o mesmo de `list`), mensagem em pt-BR com a pasta e a raiz resolvidas e a sugestão de `--create` ou `--path`, sem criar nada.
 - **RF-07:** QUANDO `new --create` for usado e a pasta não existir, o sistema DEVE criá-la e numerar a partir de 1. Pasta existente, mesmo vazia, DEVE manter o comportamento atual.
 - **RF-08:** QUANDO a pasta resolvida não existir, `list`, `link` e `organize` (inclusive `--dry-run`) DEVEM terminar com código 1 e a mesma mensagem de RF-06, sem a sugestão de `--create`. Hoje `list` e `organize` já saem com 1 ("pasta não encontrada") e `link` com 1 ("ADR não encontrado"); o requisito uniformiza a mensagem e a preserva como contrato.
-- **RF-09:** `check_adr.py` e `check_roadmap.py` DEVEM manter o comportamento atual; `migrate` DEVE manter o resultado atual (pasta resolvida, recusa fora da raiz, `numbering: padded`).
+- **RF-09:** `check_adr.py` e `check_roadmap.py` DEVEM manter o comportamento atual (exceto RF-11); `migrate` DEVE manter o resultado atual (pasta resolvida, recusa fora da raiz, `numbering: padded`).
 - **RF-10 (documentação):** `SKILL.md`, README (trecho de `.adr-std`/`--path`), ADR-1 e CHANGELOG DEVEM descrever o comportamento final, incluindo o limite sem git (rodar da raiz ou usar `--path` absoluto). `--create` é documentado no `--help` do Python, README, SKILL.md e CHANGELOG, e não no help dos wrappers (D-11).
+- **RF-11 (defeito correlato, incluído em 2026-10-22):** QUANDO o `tasks.md` de uma spec tiver título ou tarefas concluídas antes de uma tarefa pendente (`- [ ]`), `check_roadmap.py` DEVE esperar o status `Em andamento`. Causa-raiz: `TASK_LINE` sem `re.MULTILINE` só examinava o início do arquivo, e toda spec resultava `Concluída`.
 
 ### Segurança
 
@@ -69,7 +70,7 @@ Riscos e mitigações: (1) repositório aninhado/submódulo usa a raiz do repo m
 | pasta inexistente: `list`, `link`, `organize --dry-run` | erro, código 1 |
 | pasta existente e vazia | `new` numera de 1 sem erro |
 | `list`, `link`, `organize --dry-run` de subpasta | operam na pasta da raiz |
-| `check_adr.py`, `check_roadmap.py` | sem mudança (confirmar que não chamam `resolve_folder`) |
+| `check_adr.py`, `check_roadmap.py` | sem mudança de resolução de pasta (não chamam `resolve_folder`); `check_roadmap.py` só corrige a heurística de status (RF-11) |
 | `migrate` | mesmo resultado; o `--path` relativo fica como está (D-8) |
 | Windows (Pester) | `new` de subpasta cai na pasta da raiz; CI verde |
 

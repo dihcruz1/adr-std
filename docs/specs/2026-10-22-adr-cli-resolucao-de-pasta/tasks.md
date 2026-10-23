@@ -61,10 +61,10 @@ Convenção: cada tarefa de código segue RED → GREEN → REFACTOR. Comandos r
 
 ## Etapa 4 — Paridade Windows
 
-- [ ] 4.1 Caso Pester: `new` a partir de subpasta de repositório temporário cai na pasta da raiz.
+- [x] 4.1 Caso Pester: `new` a partir de subpasta de repositório temporário cai na pasta da raiz.
   - Escopo: `tests/test_cli.ps1`. RED: executar o caso antes da etapa 2 se houver `pwsh`; sem `pwsh` local, registrar `Pester não executado localmente` e o RED ficará comprovado pelos testes Python equivalentes.
   - Validação: `pwsh -NoProfile -Command "Invoke-Pester tests/test_cli.ps1"` quando disponível (hoje `pwsh` não está instalado nesta máquina); caso contrário, CI Windows (exige push e autorização pontual).
-  - Evidência: caso `new de subpasta de repositório grava na pasta de ADRs da raiz` escrito em `tests/test_cli.ps1`, e os dois casos que usavam `new` sem pasta passaram a usar `--create`. `Pester não executado localmente` (`pwsh` ausente); a tarefa só fecha com o CI Windows verde.
+  - Evidência: caso `new de subpasta de repositório grava na pasta de ADRs da raiz` escrito em `tests/test_cli.ps1`, e os dois casos que usavam `new` sem pasta passaram a usar `--create`. RED/GREEN executados com PowerShell 7.6.8 (Linux, tarball oficial com `sha256` conferido, em diretório temporário) e Pester 6.2.0: com o `adr_cli.py` anterior o caso falhou (`P=0 F=1`); com o atual passou (`P=1 F=0`). Suíte completa `tests/test_cli.ps1`: `Passed: 49, Failed: 0, Skipped: 7, Inconclusive: 1`. Não é Windows: junção NTFS e `.cmd` seguem para o CI (6.2).
 
 ## Etapa 5 — Documentação e decisões (depende de 2.3)
 
@@ -75,17 +75,25 @@ Convenção: cada tarefa de código segue RED → GREEN → REFACTOR. Comandos r
   - Validação: revisão de consistência; `bash tests/gate.sh static`.
   - Evidência: `CHANGELOG.md` `[Não lançado]` com Corrigido (raiz, `path` relativo, SEG-01) e Alterado (`new` sem criar pasta; `--create`; códigos de `list`/`link`/`organize`); `bash tests/gate.sh static` → ok.
 - [x] 5.3 Emenda ao ADR-1 (Verificação e Limitações) e linha em `docs/architecture/ADR/ROADMAP.md` (ADR-3); informar ao final.
-  - Validação: `python3 skill/scripts/check_adr.py docs/architecture/ADR/*.md` e `python3 skill/scripts/check_roadmap.py docs/architecture/ADR`.
-  - Evidência: Emenda registrada no ADR-1 (Verificação, Limitações, histórico, `Modificado em`) e linha `5` no `docs/architecture/ADR/ROADMAP.md` (`Em andamento`). `check_adr.py` no ADR-1 sem falhas (as 17 falhas dos demais ADRs são anteriores a esta mudança: 17 antes e depois). `check_roadmap.py` acusa "esperado Concluída" na linha 5 por defeito anterior do script (`TASK_LINE` sem `re.M` só vê a primeira linha do `tasks.md`; qualquer spec sai `Concluída`); não corrigido por estar fora do escopo, registrado na auditoria.
+  - Validação: `python3 skill/scripts/check_adr.py docs/architecture/ADR/[0-9]*.md` (o glob `*.md` inclui o `ROADMAP.md`, que não é ADR) e `python3 skill/scripts/check_roadmap.py docs/architecture/ADR`.
+  - Evidência: Emenda registrada no ADR-1 (Verificação, Limitações, histórico, `Modificado em`) e linha `5` no `docs/architecture/ADR/ROADMAP.md` (`Em andamento`). `check_adr.py docs/architecture/ADR/[0-9]*.md` → código 0 nos quatro ADRs (as 17 "falhas" vistas antes eram do `ROADMAP.md`, incluído por engano pelo glob `*.md`; não havia pendência). `check_roadmap.py` → `[OK] ROADMAP consistente` após a correção de RF-11 (tarefa 7.1; antes acusava a linha 5 por defeito do script).
 
 ## Etapa 6 — Validação final e auditoria (depende de tudo)
 
 - [x] 6.1 Suíte completa: `python3 -m pytest tests -q`, `bash tests/test_cli.sh`, `bash tests/gate.sh static`.
   - Evidência: `python3 -m pytest tests -q` → `135 passed, 10 subtests passed`; `bash tests/test_cli.sh` → `72 passaram, 0 falharam` (os dois casos que usavam `new` sem pasta passaram a usar `--create`); `bash tests/gate.sh static` → `Gate static: ok`.
 - [ ] 6.2 Pester no CI Windows: `E2E/Pester não executado` até haver push autorizado; registrar estado e impacto. Concluir só com o job verde.
-  - Evidência: Pester não executado; depende de push autorizado e do job Windows (impacto: RF-01 no wrapper PowerShell sem confirmação).
+  - Evidência: o job do CI Windows não foi executado (exige push, que depende de autorização pontual). Cobertura parcial no lugar: Pester no Linux (4.1). Pendente: confirmar no job Windows após o push autorizado.
 - [x] 6.3 Auditoria da implementação contra os três arquivos: cobertura por requisito (RF-01…RF-10, SEG-01…03, matriz), testes executados, discrepâncias e pendências (inclui a divergência do `--path` relativo do `migrate` e o limite sem `git`), registrada ao final deste arquivo.
   - Evidência: seção "Auditoria da implementação" abaixo.
+
+## Etapa 7 — Defeito correlato (RF-11)
+
+- [x] 7.1 `check_roadmap.py`: `TASK_LINE` com `re.MULTILINE` e teste de regressão.
+  - Escopo: `skill/scripts/check_roadmap.py`, `tests/test_check_roadmap.py`, `CHANGELOG.md`, `docs/architecture/ADR/ROADMAP.md`.
+  - RED: com o script anterior, `test_pending_task_after_title_and_done_tasks_is_in_progress` falhou (`1 failed, 12 passed`). GREEN: com a correção, `python3 -m pytest tests -q` → `136 passed`; `python3 skill/scripts/check_roadmap.py docs/architecture/ADR` → `[OK] ROADMAP consistente` (a linha 5 em `Em andamento` passa a ser a esperada). REFACTOR: N/A, mudança de uma linha.
+  - Validação: `python3 -m pytest tests/test_check_roadmap.py -q`.
+  - Evidência: ver RED/GREEN acima.
 
 ## Rastreabilidade
 
@@ -98,6 +106,7 @@ Convenção: cada tarefa de código segue RED → GREEN → REFACTOR. Comandos r
 | SEG-01 | 1.3, 1.4, 2.1, 2.2 |
 | SEG-02 | 1.2, 2.3 |
 | SEG-03, D-11 | 0.1, 4.1, 6.2 |
+| RF-11 | 7.1 |
 | Matriz de não-regressão | 1.1–1.5, 6.1, 6.2 |
 
 ## Auditoria cruzada 360° (2026-10-22)
@@ -128,13 +137,14 @@ E2E real (CLI, sem navegador; E2E de navegador N/A): reprodução do briefing em
 | SEG-01 | `OutsideRootTest`, `ResolveFolderTest::*outside_root*`, `test_adr_std_path_outside_root_exits_2` (migrate) | Atendido |
 | SEG-02 | `MissingFolderTest::test_new_fails_without_creating_anything` | Atendido |
 | SEG-03 | repositórios temporários; sem push, release ou deploy | Atendido |
-| Matriz, linha Windows (Pester) | caso escrito; **não executado** | Pendente (4.1 e 6.2) |
+| RF-11 | `test_pending_task_after_title_and_done_tasks_is_in_progress`; ROADMAP consistente | Atendido |
+| Matriz, linha Windows (Pester) | Pester no Linux (RED/GREEN do caso e suíte 49 aprovados); job Windows não executado | Parcial (6.2) |
 
-Testes executados: `python3 -m pytest tests -q` → 135 passed, 10 subtests; `bash tests/test_cli.sh` → 72 passaram; `bash tests/gate.sh static` → ok.
+Testes executados: `python3 -m pytest tests -q` → 136 passed, 10 subtests; `bash tests/test_cli.sh` → 72 passaram; `bash tests/gate.sh static` → ok.
 
 Discrepâncias e pendências:
-- **Pester não executado**: sem `pwsh` local e sem push autorizado. 4.1 e 6.2 seguem abertas e o requisito de paridade Windows não está comprovado; a spec não pode ser dada como concluída até o job Windows ficar verde.
-- `check_roadmap.py` (defeito anterior a esta spec): `TASK_LINE` sem `re.M` só olha a primeira linha do `tasks.md`, então toda spec resulta `Concluída` e a linha 5 do ROADMAP (`Em andamento`, correta) é acusada. Sugestão: tratar em spec própria.
+- **CI Windows não executado**: o Pester rodou localmente no Linux (PowerShell 7.6.8, Pester 6.2.0), mas a evidência no Windows exige push, que depende de autorização pontual. 6.2 segue aberta; a spec não pode ser dada como concluída até o job Windows ficar verde.
+- `check_roadmap.py`: defeito de `TASK_LINE` corrigido nesta spec (RF-11, tarefa 7.1).
 - Divergência conhecida (D-8): o `--path` relativo do `migrate` tenta o `cwd` e depois a raiz, diferente de D-2.
 - Limite documentado (D-9): sem `git`, de uma subpasta, vale o `cwd`; rodar da raiz ou usar `--path` absoluto.
-- `check_adr.py` aponta 17 falhas em ADRs anteriores (as mesmas antes e depois desta mudança), fora do escopo.
+- `check_adr.py`: sem falhas nos ADRs (as 17 vistas antes eram do `ROADMAP.md`, incluído pelo glob `*.md`).
