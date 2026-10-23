@@ -3,3 +3,6 @@ __pycache__/
 
 # --- Instruções locais do agente ---
 CLAUDE.md
+
+# --- Saída do Pester (-CI) ---
+testResults.xml

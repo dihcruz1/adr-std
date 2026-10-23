@@ -1,7 +1,7 @@
 ﻿# Testes do comando adr-std e do instalador para Windows (Pester 5).
 # Uso: Invoke-Pester -Path tests/test_cli.ps1 -CI
 # Cada teste roda num perfil temporário (ADR_STD_HOME, ADR_STD_LOCALAPPDATA, ADR_STD_APPDATA); o perfil real nunca é usado.
-# Espelha tests/test_cli.sh. Escrito sem poder executar no ambiente de desenvolvimento: validar no CI do Windows.
+# Espelha tests/test_cli.sh. Executado com PowerShell 7 no Linux (parcial) e no job windows-latest do CI (nativo).
 
 Describe 'adr-std' {
 
@@ -240,6 +240,17 @@ Describe 'new, list, link e organize (v1.2)' -Skip:(-not (Get-Command python -Er
         Test-Path (Join-Path $sub '1-da-subpasta.md') | Should -BeTrue
         Test-Path (Join-Path $sub 'docs') | Should -BeFalse
     }
+    It 'config path gravado pelo wrapper em APPDATA é lido por new e list (ADR-1, só Windows)' -Skip:($env:OS -ne 'Windows_NT') {
+        $repo = Join-Path $Tmp 'repo-cfg'
+        New-Item -ItemType Directory -Path (Join-Path $repo 'custom-adrs') -Force | Out-Null
+        git init -q $repo
+        (Invoke-Cli @('config', 'path', 'custom-adrs')).Code | Should -Be 0
+        Push-Location $repo
+        try { $n = Invoke-Cli @('new', 'Da config'); $l = Invoke-Cli @('list') } finally { Pop-Location }
+        $n.Code | Should -Be 0
+        Test-Path (Join-Path $repo 'custom-adrs/1-da-config.md') | Should -BeTrue
+        $l.Output | Should -Match 'Da config'
+    }
     It 'link grava a relação recíproca e organize --dry-run mostra o plano' {
         $dir = Join-Path $Tmp 'adrs'
         Invoke-Cli @('new', 'Um', '--path', $dir, '--create') | Out-Null
@@ -293,10 +304,11 @@ Describe 'migrate (v2.0)' {
 
 Describe 'update (v2.0): gancho de migração' {
     # O instalador instalado (local/adr-std/install.ps1) é trocado por um falso; o gancho roda o
-    # migrate_numbering.py real da fonte. Espelha tests/test_cli.sh (update_*); Pester não executado
-    # no ambiente de desenvolvimento (pwsh indisponível): validar no CI do Windows.
+    # migrate_numbering.py real da fonte. Espelha tests/test_cli.sh (update_*).
+    # Calculado na fase Discovery: -Skip é avaliado antes de qualquer BeforeAll (Pester 5), então uma
+    # variável definida só em BeforeAll chega nula e pula todos os casos (RF-04).
+    $HasPython = [bool](Get-Command python -ErrorAction SilentlyContinue) -or [bool](Get-Command python3 -ErrorAction SilentlyContinue) -or [bool](Get-Command py -ErrorAction SilentlyContinue)
     BeforeAll {
-        $script:HasPython = [bool](Get-Command python -ErrorAction SilentlyContinue) -or [bool](Get-Command python3 -ErrorAction SilentlyContinue) -or [bool](Get-Command py -ErrorAction SilentlyContinue)
         function Invoke-UpdateIn {
             param([string[]]$UpdateArgs = @(), [string]$Answer = $null, [string]$WorkDir)
             Push-Location $WorkDir
@@ -513,8 +525,11 @@ Describe 'comandos de conversa (v1.3)' {
         (Invoke-Cli @('audit') -Answer '9').Code | Should -Be 2
     }
     It 'sem terminal e sem padrão falha com código 3 pedindo --agent' {
-        $r = Invoke-Cli @('audit')
-        if ($r.Code -ne 3) { Set-ItResult -Inconclusive -Because 'ambiente com terminal interativo' } else { $r.Output | Should -Match '--agent' }
+        # stdin redirecionado simula a execução sem terminal, também com terminal interativo no host
+        Remove-Item Env:ADR_STD_ANSWER -ErrorAction SilentlyContinue
+        $out = $null | & $script:Ps -NoProfile -ExecutionPolicy Bypass -File $script:Cli 'audit' 2>&1 | Out-String
+        $LASTEXITCODE | Should -Be 3
+        $out | Should -Match '--agent'
     }
     It 'sem agente elegível falha com código 3 pedindo install' {
         Invoke-Cli @('uninstall') | Out-Null

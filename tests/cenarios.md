@@ -88,15 +88,17 @@ Os testes automáticos usam agentes falsos; abrir o agente real é manual (R-03 
 
 | Cenário | Claude Code | Codex | Gemini | Antigravity | OpenCode | Observações |
 |---|---|---|---|---|---|---|
-| Script | | | | | | |
-| C1 | | | | | | |
-| C2 | | | | | | |
-| C3 | | | | | | |
-| C4 | | | | | | |
-| C5 | | | | | | |
-| C6 | | | | | | |
-| C7 | | | | | | |
-| C8 | | | | | | |
-| C9 | | | | | | |
-| C10 | | | | | | |
-| C11 | | | | | | |
+| Script | passou (0 e 1) | n/a | n/a | n/a | n/a | independe de agente |
+| C1 | passou | não executado | n/a | n/a | n/a | Codex: modelo do config não aceito pela conta; ver observações |
+| C2 | passou | não executado | n/a | n/a | n/a |  |
+| C3 | passou | não executado | n/a | n/a | n/a |  |
+| C4 | passou | não executado | n/a | n/a | n/a |  |
+| C5 | passou | não executado | n/a | n/a | n/a |  |
+| C6 | passou | não executado | n/a | n/a | n/a |  |
+| C7 | passou (pelo plano; modo -p não grava) | não executado | n/a | n/a | n/a |  |
+| C8 | passou | não executado | n/a | n/a | n/a |  |
+| C9 | passou | não executado | n/a | n/a | n/a |  |
+| C10 | inconclusivo (tendência a falhar) | não executado | n/a | n/a | n/a | pedido sem decisão: o agente pediu a decisão e não pediu autorização expressa para o commit |
+| C11 | passou (rodada 2; falhou na 1 por doc enganosa, corrigida) | não executado | n/a | n/a | n/a | variante `numbering: padded` passou |
+
+Execução de 2026-10-22: Claude Code 2.1.299 via `claude -p --permission-mode acceptEdits` (rodada 2 com `--add-dir` da skill) em repositórios descartáveis; Codex CLI 0.162.1 falhou antes de agir (`The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account`, vindo do `~/.codex/config.toml`, não alterado): E2E não executado por autenticação indisponível (na prática, modelo configurado não aceito pela conta). Gemini, Antigravity e OpenCode não foram executados. T1–T3, `--ask` e `--quick` exigem terminal interativo e seguem pendentes.

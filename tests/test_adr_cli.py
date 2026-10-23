@@ -273,6 +273,55 @@ class ResolveFolderTest(CliTestCase):
         self.assertTrue((proj / "meus-adrs" / "1-algo.md").exists())
 
 
+class GlobalConfigHomeTest(CliTestCase):
+    """Configuração global por plataforma (ADR-1): APPDATA no Windows; XDG nos demais."""
+
+    def home(self, platform: str, **env: str) -> Path:
+        with unittest.mock.patch.object(sys, "platform", platform):
+            with unittest.mock.patch.dict(os.environ, env, clear=True):
+                return adr_cli.global_config_home()
+
+    def test_windows_prefers_test_override_then_appdata(self) -> None:
+        r = str(self.root)
+        self.assertEqual(self.home("win32", ADR_STD_APPDATA=f"{r}/t", APPDATA=f"{r}/a", XDG_CONFIG_HOME=f"{r}/x"), Path(f"{r}/t"))
+        self.assertEqual(self.home("win32", APPDATA=f"{r}/a", XDG_CONFIG_HOME=f"{r}/x"), Path(f"{r}/a"))
+
+    def test_windows_without_appdata_uses_profile_roaming(self) -> None:
+        r = str(self.root)
+        self.assertEqual(self.home("win32", ADR_STD_HOME=f"{r}/h", USERPROFILE=f"{r}/u"), Path(f"{r}/h/AppData/Roaming"))
+        self.assertEqual(self.home("win32", USERPROFILE=f"{r}/u"), Path(f"{r}/u/AppData/Roaming"))
+
+    def test_windows_empty_variables_count_as_absent(self) -> None:
+        r = str(self.root)
+        self.assertEqual(self.home("win32", ADR_STD_APPDATA="", APPDATA="", USERPROFILE=f"{r}/u"), Path(f"{r}/u/AppData/Roaming"))
+
+    def test_posix_uses_xdg_then_dot_config_and_ignores_appdata(self) -> None:
+        r = str(self.root)
+        for platform in ("linux", "darwin"):
+            self.assertEqual(self.home(platform, XDG_CONFIG_HOME=f"{r}/x", APPDATA=f"{r}/a", ADR_STD_APPDATA=f"{r}/t"), Path(f"{r}/x"))
+            self.assertEqual(self.home(platform, HOME=r, APPDATA=f"{r}/a"), Path(r) / ".config")
+
+    def test_cli_main_reads_appdata_on_windows(self) -> None:
+        repo = self.git_repo()
+        (repo / "do-appdata").mkdir()
+        (repo / "do-xdg").mkdir()
+        appdata, xdg = self.root / "appdata", self.root / "xdg"
+        for base, folder in ((appdata, "do-appdata"), (xdg, "do-xdg")):
+            (base / "adr-std").mkdir(parents=True)
+            (base / "adr-std" / "config").write_text(f"path: {folder}\n", encoding="utf-8")
+        env = {**os.environ, "APPDATA": str(appdata), "XDG_CONFIG_HOME": str(xdg)}
+        with unittest.mock.patch.object(sys, "platform", "win32"), unittest.mock.patch.dict(os.environ, env):
+            with unittest.mock.patch.object(sys, "argv", ["adr_cli.py", "new", "W"]):
+                old = os.getcwd()
+                os.chdir(repo)
+                try:
+                    self.assertEqual(adr_cli.main(), 0)
+                finally:
+                    os.chdir(old)
+        self.assertTrue((repo / "do-appdata" / "1-w.md").exists())
+        self.assertFalse((repo / "do-xdg" / "1-w.md").exists())
+
+
 class RepoRootTest(CliTestCase):
     def test_git_subdir_returns_toplevel(self) -> None:
         repo = self.git_repo()
