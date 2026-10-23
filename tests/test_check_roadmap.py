@@ -143,6 +143,24 @@ class CheckRoadmapTest(unittest.TestCase):
         self.assertEqual(result.returncode, 1)
         self.assertIn("Concluída", result.stdout)
 
+    def test_pending_task_after_title_and_done_tasks_is_in_progress(self):
+        self.write("1-titulo.md", ADR_TEXT)
+        self._write_spec(
+            "minha-spec",
+            {
+                "requirements.md": "# req",
+                "design.md": "# design",
+                "tasks.md": "# Tarefas\n\n- [x] 1.1 feito\n- [ ] 1.2 pendente\n",
+            },
+        )
+        row = "| 1 | Teste | [ADR-1](1-titulo.md) | [spec](specs/minha-spec/requirements.md) | {} | — |\n"
+        self.write("ROADMAP.md", VALID_HEADER + row.format("Concluída"))
+        result = run(str(self.tmp))
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("esperado 'Em andamento'", result.stdout)
+        self.write("ROADMAP.md", VALID_HEADER + row.format("Em andamento"))
+        self.assertEqual(run(str(self.tmp)).returncode, 0)
+
     def test_pending_spec_is_ignored_for_status_heuristic(self):
         self.write("1-titulo.md", ADR_TEXT)
         self.write(
