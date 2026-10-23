@@ -311,9 +311,7 @@ def main() -> int:
             pass
 
     if args.path_arg:
-        folder = (cwd / args.path_arg).resolve()
-        if not folder.exists() and not Path(args.path_arg).is_absolute():
-            folder = (root / args.path_arg).resolve()  # relativo à raiz, se não existe no cwd
+        folder = (cwd / args.path_arg).resolve()  # relativo ao cwd; absoluto vale como está (ADR-1)
     else:
         config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
         try:

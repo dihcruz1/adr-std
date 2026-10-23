@@ -17,6 +17,8 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
   `tasks.md`); passa a esperar `Em andamento` quando houver tarefa pendente.
 
 ### Alterado
+- `adr-std migrate --path` relativo passa a valer só contra o diretório atual, como nos demais comandos; antes tentava
+  também a raiz do repositório quando a pasta não existia no diretório atual.
 - `new` não cria mais a pasta dos ADRs em silêncio: com a pasta inexistente, sai com código 1 e mensagem com a pasta e a
   raiz resolvidas. Para o primeiro uso, `adr-std new <título> --create` cria a pasta. `list`, `link` e `organize`
   saem com código 1 e a mesma mensagem.
