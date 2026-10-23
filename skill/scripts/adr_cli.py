@@ -3,11 +3,12 @@
 
 Mesma lógica de parsing e de nome de arquivo de check_adr.py (reaproveitada por importação,
 mesmo diretório). Pasta dos ADRs (ADR-1): --path > `.adr-std` (campo `path`) > config global
-(campo `path`) > docs/architecture/ADR. A convenção em `CONVENTIONS.md`/`AGENTS.md` (texto livre)
+(campo `path`) > docs/architecture/ADR. `--path` relativo vale contra o diretório atual; `path` do
+`.adr-std`/config global e o padrão valem contra a raiz do repositório (git; fora dele, o diretório atual). A convenção em `CONVENTIONS.md`/`AGENTS.md` (texto livre)
 é lida só pelo agente, via SKILL.md.
 
 Uso:
-    python3 adr_cli.py new <título> [--path PASTA] [--name-pattern REGEX]
+    python3 adr_cli.py new <título> [--path PASTA] [--name-pattern REGEX] [--create]
     python3 adr_cli.py list [--path PASTA] [--name-pattern REGEX]
     python3 adr_cli.py link <ADR-A> <tipo> <ADR-B> [--path PASTA] [--name-pattern REGEX]
     python3 adr_cli.py organize --dry-run [--path PASTA] [--name-pattern REGEX]
@@ -18,6 +19,7 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import subprocess
 import sys
 import unicodedata
 from datetime import date
@@ -57,15 +59,56 @@ def read_path_field(config_file: Path) -> Path | None:
     return None
 
 
-def resolve_folder(path_arg: str | None, cwd: Path, config_home: Path) -> Path:
-    """Precedência do ADR-1: --path > .adr-std local > config global > padrão."""
+class FolderConfigError(ValueError):
+    """Configuração de pasta inválida (ex.: `path` do `.adr-std` fora da raiz)."""
+
+
+def repo_root(cwd: Path) -> Path:
+    """Raiz do repositório git; fora de um repositório (ou sem git), o próprio `cwd`."""
+    try:
+        r = subprocess.run(
+            ["git", "-C", str(cwd), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, check=False,
+        )
+    except OSError:
+        return cwd.resolve()
+    top = r.stdout.strip()
+    if r.returncode == 0 and top:
+        return Path(top).resolve()
+    return cwd.resolve()
+
+
+def resolve_folder(path_arg: str | None, cwd: Path, config_home: Path, root: Path | None = None) -> Path:
+    """Precedência do ADR-1: --path > .adr-std da raiz > config global > padrão. Devolve caminho absoluto.
+
+    `--path` relativo vale contra `cwd`; os demais, contra a raiz. O `path` do `.adr-std`
+    (arquivo versionado) não pode resolver fora da raiz.
+    """
+    root = (root if root is not None else repo_root(cwd)).resolve()
     if path_arg:
-        return Path(path_arg)
-    return (
-        read_path_field(cwd / ".adr-std")
-        or read_path_field(config_home / "adr-std" / "config")
-        or DEFAULT_FOLDER
+        return (cwd / path_arg).resolve()
+    local = read_path_field(root / ".adr-std")
+    if local is not None:
+        folder = (root / local).resolve()
+        if not folder.is_relative_to(root):
+            raise FolderConfigError(
+                f"o campo path do .adr-std ({local}) aponta para fora da raiz do repositório ({root})"
+            )
+        return folder
+    global_path = read_path_field(config_home / "adr-std" / "config")
+    return (root / (global_path or DEFAULT_FOLDER)).resolve()
+
+
+def require_folder(args: argparse.Namespace, hint: str = "") -> int | None:
+    """Código 1 (com mensagem) se a pasta dos ADRs não existe; None se existe."""
+    if args.folder.is_dir():
+        return None
+    print(
+        f"adr-std: pasta de ADRs não encontrada: {args.folder} (raiz: {args.root}). "
+        f"Use --path para indicar outra pasta{hint}.",
+        file=sys.stderr,
     )
+    return 1
 
 
 def slugify(title: str) -> str:
@@ -184,6 +227,10 @@ def cmd_new(args: argparse.Namespace) -> int:
         print("adr-std: o título não pode ser vazio", file=sys.stderr)
         return 2
     folder = args.folder
+    if not args.create:
+        missing = require_folder(args, " ou --create para criá-la")
+        if missing:
+            return missing
     number = next_number(folder, args.name_pattern)
     name = f"{number}-{slugify(title)}.md"
     if not args.name_pattern.match(name):
@@ -193,7 +240,8 @@ def cmd_new(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 1
-    folder.mkdir(parents=True, exist_ok=True)
+    if args.create:
+        folder.mkdir(parents=True, exist_ok=True)
     path = write_new_adr(folder, number, title, date.today().isoformat())
     print(f"criado: {path}")
     return 0
@@ -207,9 +255,9 @@ def adr_title(text: str, fallback: str) -> str:
 
 def cmd_list(args: argparse.Namespace) -> int:
     folder = args.folder
-    if not folder.is_dir():
-        print(f"adr-std: pasta não encontrada: {folder}", file=sys.stderr)
-        return 1
+    missing = require_folder(args)
+    if missing:
+        return missing
     files = list_adrs(folder, args.name_pattern)
     if not files:
         print(f"nenhum ADR encontrado em {folder}")
@@ -246,6 +294,9 @@ def cmd_link(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
         return 2
+    missing = require_folder(args)
+    if missing:
+        return missing
     path_a = find_adr_file(folder, args.adr_a, args.name_pattern)
     path_b = find_adr_file(folder, args.adr_b, args.name_pattern)
     if path_a is None:
@@ -283,9 +334,9 @@ def cmd_organize(args: argparse.Namespace) -> int:
         )
         return 2
     folder = args.folder
-    if not folder.is_dir():
-        print(f"adr-std: pasta não encontrada: {folder}", file=sys.stderr)
-        return 1
+    missing = require_folder(args)
+    if missing:
+        return missing
     files = list_adrs(folder, args.name_pattern)
     width = number_width([n for n in (number_of(f, args.name_pattern) for f in files) if n is not None])
     plan = []
@@ -315,6 +366,7 @@ def main() -> int:
 
     p_new = sub.add_parser("new")
     p_new.add_argument("title")
+    p_new.add_argument("--create", action="store_true", help="cria a pasta dos ADRs se ela não existir")
     add_common(p_new)
 
     add_common(sub.add_parser("list"))
@@ -332,7 +384,12 @@ def main() -> int:
     args = ap.parse_args()
     args.name_pattern = re.compile(args.name_pattern_raw)
     config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
-    args.folder = resolve_folder(args.path_arg, Path.cwd(), config_home)
+    args.root = repo_root(Path.cwd())
+    try:
+        args.folder = resolve_folder(args.path_arg, Path.cwd(), config_home, args.root)
+    except FolderConfigError as exc:
+        print(f"adr-std: {exc}", file=sys.stderr)
+        return 2
 
     handlers = {"new": cmd_new, "list": cmd_list, "link": cmd_link, "organize": cmd_organize}
     return handlers[args.command](args)
