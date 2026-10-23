@@ -23,7 +23,7 @@ Os testes `ResolveFolderTest.test_default` e `test_cli_uses_dot_adr_std_in_cwd` 
 | D-5 | `list`, `link` e `organize` com pasta inexistente: erro, código diferente de zero. |
 | D-6 | Correção (patch) com mudança de contrato visível, registrada em `[Não lançado]` do CHANGELOG; número da release é decisão do responsável. |
 | D-7 | Emenda ao ADR-1 (Verificação e Limitações), sem ADR novo; ROADMAP atualizado (ADR-3). |
-| D-8 | `migrate` só adapta a chamada a `resolve_folder`; o `--path` relativo dele (tenta `cwd`, depois raiz) fica fora do escopo, registrado como divergência pendente. |
+| D-8 | `migrate` adapta a chamada a `resolve_folder`. Revisada em 2026-10-22 a pedido do responsável: o `--path` relativo do `migrate` passa a valer só contra o `cwd` (D-2), sem a alternativa da raiz (RF-12). |
 | D-9 | Sem git no PATH, fallback silencioso para o `cwd`; limite documentado. |
 | D-10 | `path:` do `.adr-std` que resolva fora da raiz é erro (código 2). `--path` e config global não têm essa restrição. |
 | D-11 | `bin/adr-std.ps1` não muda; um caso Pester novo; conclusão só com CI Windows verde. |
@@ -41,6 +41,7 @@ Os testes `ResolveFolderTest.test_default` e `test_cli_uses_dot_adr_std_in_cwd` 
 - **RF-08:** QUANDO a pasta resolvida não existir, `list`, `link` e `organize` (inclusive `--dry-run`) DEVEM terminar com código 1 e a mesma mensagem de RF-06, sem a sugestão de `--create`. Hoje `list` e `organize` já saem com 1 ("pasta não encontrada") e `link` com 1 ("ADR não encontrado"); o requisito uniformiza a mensagem e a preserva como contrato.
 - **RF-09:** `check_adr.py` e `check_roadmap.py` DEVEM manter o comportamento atual (exceto RF-11); `migrate` DEVE manter o resultado atual (pasta resolvida, recusa fora da raiz, `numbering: padded`).
 - **RF-10 (documentação):** `SKILL.md`, README (trecho de `.adr-std`/`--path`), ADR-1 e CHANGELOG DEVEM descrever o comportamento final, incluindo o limite sem git (rodar da raiz ou usar `--path` absoluto). `--create` é documentado no `--help` do Python, README, SKILL.md e CHANGELOG, e não no help dos wrappers (D-11).
+- **RF-12:** QUANDO `migrate` receber `--path` relativo, o sistema DEVE resolvê-lo contra o `cwd`, sem tentar a raiz como alternativa; absoluto vale como está, e a recusa de pasta fora da raiz (código 2) é preservada.
 - **RF-11 (defeito correlato, incluído em 2026-10-22):** QUANDO o `tasks.md` de uma spec tiver título ou tarefas concluídas antes de uma tarefa pendente (`- [ ]`), `check_roadmap.py` DEVE esperar o status `Em andamento`. Causa-raiz: `TASK_LINE` sem `re.MULTILINE` só examinava o início do arquivo, e toda spec resultava `Concluída`.
 
 ### Segurança
@@ -71,9 +72,9 @@ Riscos e mitigações: (1) repositório aninhado/submódulo usa a raiz do repo m
 | pasta existente e vazia | `new` numera de 1 sem erro |
 | `list`, `link`, `organize --dry-run` de subpasta | operam na pasta da raiz |
 | `check_adr.py`, `check_roadmap.py` | sem mudança de resolução de pasta (não chamam `resolve_folder`); `check_roadmap.py` só corrige a heurística de status (RF-11) |
-| `migrate` | mesmo resultado; o `--path` relativo fica como está (D-8) |
+| `migrate` | mesmo resultado; `--path` relativo só contra o `cwd` (RF-12) |
 | Windows (Pester) | `new` de subpasta cai na pasta da raiz; CI verde |
 
 ## Fora do escopo
 
-Numeração (ADR-4), formato do ADR, lógica do `migrate` além da chamada (inclusive o `--path` relativo dele, que tenta `cwd` e depois a raiz e diverge de D-2; pendência registrada na auditoria 6.3), projeto `led-bomb-monitor`. E2E de navegador N/A: produto CLI sem interface web.
+Numeração (ADR-4), formato do ADR, lógica do `migrate` além da chamada (além do `--path` relativo, tratado em RF-12), projeto `led-bomb-monitor`. E2E de navegador N/A: produto CLI sem interface web.

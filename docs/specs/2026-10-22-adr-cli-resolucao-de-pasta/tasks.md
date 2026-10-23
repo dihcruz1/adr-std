@@ -95,6 +95,12 @@ Convenção: cada tarefa de código segue RED → GREEN → REFACTOR. Comandos r
   - Validação: `python3 -m pytest tests/test_check_roadmap.py -q`.
   - Evidência: ver RED/GREEN acima.
 
+- [x] 8.1 `migrate`: `--path` relativo só contra o `cwd` (RF-12, D-8 revisada).
+  - Escopo: `skill/scripts/migrate_numbering.py`, `tests/test_migrate_numbering.py`, `CHANGELOG.md`.
+  - RED: `test_relative_path_is_relative_to_cwd_only` falhou com o código anterior (o `migrate` caía na raiz). GREEN: `python3 -m pytest tests -q` → `137 passed`; `bash tests/test_cli.sh` → `72 passaram`. REFACTOR: removido o desvio para a raiz. O teste `test_root_option_and_git_toplevel` passou a usar `--path` absoluto no trecho de `--root`, pois dependia do desvio.
+  - Validação: `python3 -m pytest tests/test_migrate_numbering.py -q`.
+  - Evidência: ver RED/GREEN acima.
+
 ## Rastreabilidade
 
 | Requisito | Tarefas |
@@ -107,6 +113,7 @@ Convenção: cada tarefa de código segue RED → GREEN → REFACTOR. Comandos r
 | SEG-02 | 1.2, 2.3 |
 | SEG-03, D-11 | 0.1, 4.1, 6.2 |
 | RF-11 | 7.1 |
+| RF-12 | 8.1 |
 | Matriz de não-regressão | 1.1–1.5, 6.1, 6.2 |
 
 ## Auditoria cruzada 360° (2026-10-22)
@@ -137,14 +144,15 @@ E2E real (CLI, sem navegador; E2E de navegador N/A): reprodução do briefing em
 | SEG-01 | `OutsideRootTest`, `ResolveFolderTest::*outside_root*`, `test_adr_std_path_outside_root_exits_2` (migrate) | Atendido |
 | SEG-02 | `MissingFolderTest::test_new_fails_without_creating_anything` | Atendido |
 | SEG-03 | repositórios temporários; sem push, release ou deploy | Atendido |
+| RF-12 | `test_relative_path_is_relative_to_cwd_only` | Atendido |
 | RF-11 | `test_pending_task_after_title_and_done_tasks_is_in_progress`; ROADMAP consistente | Atendido |
 | Matriz, linha Windows (Pester) | Pester no Linux (RED/GREEN do caso e suíte 49 aprovados); job Windows não executado | Parcial (6.2) |
 
-Testes executados: `python3 -m pytest tests -q` → 136 passed, 10 subtests; `bash tests/test_cli.sh` → 72 passaram; `bash tests/gate.sh static` → ok.
+Testes executados: `python3 -m pytest tests -q` → 137 passed, 10 subtests; `bash tests/test_cli.sh` → 72 passaram; `bash tests/gate.sh static` → ok.
 
 Discrepâncias e pendências:
 - **CI Windows não executado**: o Pester rodou localmente no Linux (PowerShell 7.6.8, Pester 6.2.0), mas a evidência no Windows exige push, que depende de autorização pontual. 6.2 segue aberta; a spec não pode ser dada como concluída até o job Windows ficar verde.
 - `check_roadmap.py`: defeito de `TASK_LINE` corrigido nesta spec (RF-11, tarefa 7.1).
-- Divergência conhecida (D-8): o `--path` relativo do `migrate` tenta o `cwd` e depois a raiz, diferente de D-2.
+- D-8 revisada: o `--path` relativo do `migrate` agora vale só contra o `cwd` (RF-12, tarefa 8.1); sem divergência.
 - Limite documentado (D-9): sem `git`, de uma subpasta, vale o `cwd`; rodar da raiz ou usar `--path` absoluto.
 - `check_adr.py`: sem falhas nos ADRs (as 17 vistas antes eram do `ROADMAP.md`, incluído pelo glob `*.md`).

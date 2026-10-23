@@ -425,6 +425,18 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(p.exists("decisoes/3-c.md"))
 
+    def test_relative_path_is_relative_to_cwd_only(self):
+        # D-2: --path relativo vale contra o cwd, sem tentar a raiz como alternativa
+        p = Project(self, BASE, use_git=True)
+        (p.root / "sub").mkdir()
+        code, out, _ = run_main(["--apply", "--path", "docs/adr"], p.root / "sub")
+        self.assertEqual(code, 0)
+        self.assertTrue(p.exists("docs/adr/0001-a.md"))
+        self.assertFalse(p.exists("docs/adr/1-a.md"))
+        code, _, _ = run_main(["--apply", "--path", "../docs/adr"], p.root / "sub")
+        self.assertEqual(code, 0)
+        self.assertTrue(p.exists("docs/adr/1-a.md"))
+
     def test_adr_std_path_outside_root_exits_2(self):
         p = Project(self, {".adr-std": "path: ../fora\n"})
         with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(p.root / "cfg")}):
@@ -441,7 +453,7 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(p.read("README.md"), "Ver [ADR-1](docs/adr/1-a.md) e ADR-2.\n")
         # --root explícito
         q = Project(self, BASE)
-        code, _, _ = run_main(["--root", str(q.root), "--path", "docs/adr", "--apply"], q.root.parent)
+        code, _, _ = run_main(["--root", str(q.root), "--path", str(q.root / "docs/adr"), "--apply"], q.root.parent)
         self.assertEqual(code, 0)
         self.assertTrue(q.exists("docs/adr/1-a.md"))
 

@@ -42,7 +42,7 @@ Precedência inalterada (ADR-1): `--path` > `.adr-std` > config global > padrão
 
 ### `migrate_numbering.py`
 
-`folder = (root / resolve_folder(None, root, config_home)).resolve()` vira `folder = resolve_folder(None, root, config_home, root=root)` dentro de `try/except FolderConfigError` (código 2, mesmo prefixo). O resto fica: `--path` relativo (tenta `cwd`, depois raiz) como está (D-8), `under(folder, root)` e `numbering: padded`.
+`folder = (root / resolve_folder(None, root, config_home)).resolve()` vira `folder = resolve_folder(None, root, config_home, root=root)` dentro de `try/except FolderConfigError` (código 2, mesmo prefixo). `--path` relativo passa a ser resolvido só contra o `cwd` (RF-12, revisão de D-8), sem a alternativa da raiz; `under(folder, root)` e `numbering: padded`.
 
 ## Decisões e justificativas
 
@@ -86,7 +86,7 @@ Pester (`tests/test_cli.ps1`): um caso `new` a partir de subpasta de repositóri
 
 Validação do conjunto: `python3 -m pytest tests`, `bash tests/test_cli.sh`, `bash tests/gate.sh static`.
 
-## Correção correlata (RF-11)
+## Correção correlata (RF-11) e alinhamento do `migrate` (RF-12)
 
 `skill/scripts/check_roadmap.py`: `TASK_LINE` passa a `re.MULTILINE`. Teste: spec com título, tarefa concluída e tarefa pendente deve exigir `Em andamento` no ROADMAP. Verificado que as demais specs vinculadas ao ROADMAP seguem consistentes após a correção.
 
