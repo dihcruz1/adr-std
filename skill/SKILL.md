@@ -120,7 +120,7 @@ Regras detalhadas: guia, seção 12.
 4. Mantenha relações recíprocas (se A substitui B, B fica `Substituído por ADR-A`).
 5. Tire o andamento de implementação do campo Status (ele descreve a decisão, não a execução).
 6. Encontrou ADRs com zeros à esquerda (`0005-x.md`) e nenhuma convenção declarada com zeros? Ofereça
-   `adr-std migrate` (`0005-x.md` → `5-x.md`, mesmo número, links corrigidos): rode sem `--apply`, **mostre o plano**
+   `adr-std migrate` (ou `python3 scripts/migrate_numbering.py` se o comando não estiver no PATH; `0005-x.md` → `5-x.md`, mesmo número, links corrigidos): rode sem `--apply`, **mostre o plano**
    e só aplique (`--apply`) com autorização; nunca renomeie por conta própria. O `adr-std update` também executa o
    plano no projeto atual (`--no-migrate` pula). Projeto que mantém zeros declara `numbering: padded` no
    `.adr-std` e não é migrado.
@@ -168,4 +168,5 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 | `references/template-madr.md` | Template do ADR, com os campos da 6.10 |
 | `references/checklist.md` | Checklist de conformidade, com a origem de cada item |
 | `scripts/check_adr.py` | Verificação automática dos itens `[auto]` (Python 3, só biblioteca padrão) |
-| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`, `migrate`); o agente não precisa dele, mas pode usá-lo |
+| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`); o agente não precisa dele, mas pode usá-lo |
+| `scripts/migrate_numbering.py` | Migração para a numeração sem zeros (`adr-std migrate`); sem o comando no PATH, `python3 scripts/migrate_numbering.py [--path PASTA] [--apply]`, sempre sem `--apply` primeiro |

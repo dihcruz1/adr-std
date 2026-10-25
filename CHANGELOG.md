@@ -5,6 +5,18 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+## [3.0.0] - 2026-10-22
+
+### Alterado (quebra de compatibilidade)
+- `adr-std new` não cria mais a pasta dos ADRs em silêncio: com a pasta inexistente, sai com código 1 e mensagem com a
+  pasta e a raiz resolvidas. Para o primeiro uso, `adr-std new <título> --create` cria a pasta. `list`, `link` e
+  `organize` saem com código 1 e a mesma mensagem. Scripts que dependiam da criação automática precisam de `--create`.
+- `adr-std migrate --path` relativo passa a valer só contra o diretório atual, como nos demais comandos; antes tentava
+  também a raiz do repositório quando a pasta não existia no diretório atual.
+
+### Adicionado
+- `adr-std new --create`: cria a pasta dos ADRs inexistente (primeiro uso do projeto).
+
 ### Corrigido
 - `new`, `list`, `link` e `organize` resolvem a pasta dos ADRs a partir da raiz do repositório (git), e não do diretório
   atual: executados de uma subpasta, não criam mais a pasta dentro dela, não numeram a partir de 1 nem ignoram o
@@ -12,16 +24,14 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 - O campo `path` do `.adr-std` e da config global, quando relativo, vale contra a raiz do repositório; `--path`
   relativo continua valendo contra o diretório atual.
 - O `path` do `.adr-std` (arquivo versionado) que aponte para fora da raiz do repositório é recusado (código 2).
-
+- No Windows, `new`, `list`, `link`, `organize` e `migrate` leem a config global em `%APPDATA%\adr-std\config`, onde o
+  `adr-std config path` a grava (ADR-1); antes liam só o caminho do Linux (`XDG_CONFIG_HOME`/`~/.config`). Linux e macOS
+  não mudam.
 - `check_roadmap.py` esperava o status `Concluída` para qualquer spec (a expressão das tarefas só examinava o início do
   `tasks.md`); passa a esperar `Em andamento` quando houver tarefa pendente.
-
-### Alterado
-- `adr-std migrate --path` relativo passa a valer só contra o diretório atual, como nos demais comandos; antes tentava
-  também a raiz do repositório quando a pasta não existia no diretório atual.
-- `new` não cria mais a pasta dos ADRs em silêncio: com a pasta inexistente, sai com código 1 e mensagem com a pasta e a
-  raiz resolvidas. Para o primeiro uso, `adr-std new <título> --create` cria a pasta. `list`, `link` e `organize`
-  saem com código 1 e a mesma mensagem.
+- `SKILL.md` listava `migrate` como comando de `adr_cli.py`, que não o tem; num cenário real (C11) o agente não achou a migração. A tabela de scripts passou a apontar `migrate_numbering.py` e o comando alternativo sem `adr-std` no PATH.
+- Testes Pester: os casos do `update` com migração eram pulados sempre (a variável do Python só existia na fase de
+  execução) e o teste sem terminal ficava inconclusivo com terminal interativo; agora executam e exigem o código 3.
 
 ## [2.0.1] - 2026-10-05
 
