@@ -34,6 +34,7 @@ As etapas abaixo rastreiam a relação entre as versões e as decisões arquitet
 | **v1.3** | Comandos de conversa no terminal; agente padrão e menu com memória | [ADR-1](1-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-01-adr-std-v1-3-conversa-terminal](../../specs/2026-10-01-adr-std-v1-3-conversa-terminal/) |
 | **v1.4** | `adr-std config path`: escrita da config global pela CLI (nível 4 do ADR-1, etapa 2) | [ADR-1](1-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-02-adr-std-v1-4-config-path](../../specs/2026-10-02-adr-std-v1-4-config-path/) |
 | **v2.0** | Numeração dos ADRs sem zeros à esquerda; `adr-std migrate` e migração mostrada pelo `update` | [ADR-4](4-numeracao-dos-adrs-sem-zeros-a-esquerda.md) | [2026-10-03-adr-numeracao-sem-zeros](../../specs/2026-10-03-adr-numeracao-sem-zeros/) |
+| **v3.0** | Resolução da pasta de ADRs a partir da raiz do repositório; `new --create`; config global no Windows em `%APPDATA%` | [ADR-1](1-caminho-padrao-dos-adrs-e-personalizacao.md) | [2026-10-22-adr-cli-resolucao-de-pasta](../../specs/2026-10-22-adr-cli-resolucao-de-pasta/), [2026-10-05-close-validation-gaps](../../specs/2026-10-05-close-validation-gaps/) |
 
 ---
 
