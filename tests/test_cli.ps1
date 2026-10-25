@@ -597,4 +597,36 @@ Describe 'instalador e self-uninstall' {
     }
 }
 
+Describe 'Windows nativo: junção NTFS, .cmd e PATH' -Skip:($env:OS -ne 'Windows_NT') {
+    It 'install --link cria junção NTFS para a skill da fonte' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        (Invoke-Cli @('install', '--link', 'claude-code')).Code | Should -Be 0
+        $dest = Get-Item -LiteralPath (Join-Path $HomeDir '.claude/skills/adr-std') -Force
+        $dest.LinkType | Should -Be 'Junction'
+        Test-Path (Join-Path $dest.FullName 'SKILL.md') | Should -BeTrue
+    }
+    It 'adr-std.cmd instalado executa version pelo cmd.exe' {
+        Invoke-Installer @('--agent', 'claude-code') | Out-Null
+        $cmd = Join-Path $Tmp 'local/adr-std/bin/adr-std.cmd'
+        $out = & cmd.exe /c "`"$cmd`" version" 2>&1 | Out-String
+        $LASTEXITCODE | Should -Be 0
+        $out | Should -Match ((Get-Content -Raw (Join-Path $Root 'VERSION')).Trim())
+    }
+    # Altera o PATH real do usuário: só roda no CI (runner descartável) e restaura o valor original.
+    It 'instalador acrescenta a pasta do comando ao PATH do usuário e o self-uninstall a remove' -Skip:(-not $env:GITHUB_ACTIONS) {
+        $original = [Environment]::GetEnvironmentVariable('Path', 'User')
+        $bin = Join-Path $Tmp 'local/adr-std/bin'
+        try {
+            Remove-Item Env:ADR_STD_NO_PATH -ErrorAction SilentlyContinue
+            (Invoke-Installer @('--agent', 'claude-code') 's').Code | Should -Be 0
+            @([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') | Should -Contain $bin
+            $env:ADR_STD_ANSWER = 's'
+            & $script:Ps -NoProfile -ExecutionPolicy Bypass -File (Join-Path $bin 'adr-std.ps1') self-uninstall | Out-Null
+            @([Environment]::GetEnvironmentVariable('Path', 'User') -split ';') | Should -Not -Contain $bin
+        } finally {
+            [Environment]::SetEnvironmentVariable('Path', $original, 'User')
+        }
+    }
+}
+
 }
