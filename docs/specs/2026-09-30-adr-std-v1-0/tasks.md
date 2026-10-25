@@ -102,7 +102,7 @@
 
 ## 6. Windows (PowerShell)
 
-- [ ] 6.1 — `bin/adr-std.ps1`, `bin/adr-std.cmd` e `install.ps1` com paridade de 3.1 a 4.3; depende de 4.3. Cobre RF-01 a RF-16 no Windows.
+- [x] 6.1 — `bin/adr-std.ps1`, `bin/adr-std.cmd` e `install.ps1` com paridade de 3.1 a 4.3; depende de 4.3. Cobre RF-01 a RF-16 no Windows.
   - **RED:** `tests/test_cli.ps1` (Pester) com os mesmos cenários de `test_cli.sh`, em perfil temporário.
   - **GREEN:** implementação espelhando o bash.
   - **REFACTOR:** conferir mensagens idênticas às do bash.
@@ -129,6 +129,7 @@
 
 ## 7. Documentação
 
+  - **Fechamento (2026-10-25):** as três pendências (`--link` como junção NTFS, `adr-std.cmd` e PATH nativo do usuário) ganharam teste Pester e passaram no Windows nativo: [run 40225928166](https://github.com/dihcruz1/adr-std/actions/runs/40225928166), `Tests Passed: 54, Failed: 0, Skipped: 7` (spec 2026-10-05, tarefa 3.5).
 - [x] 7.1 — `README.md` completo; depende de 5.1. Cobre RF-18, D-10.
   - **RED:** checklist de seções do README (as 21 da proposta) marcado como incompleto.
   - **GREEN:** escrever o README: skill (o que faz, garantias, limites da norma, exemplos, template, verificação, arquivos), quatro formas de instalação por sistema, avisos de segurança, agentes, comandos, confirmar, atualizar e remover, problemas comuns, sobre a norma, limitações, licença.
