@@ -30,7 +30,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from adr_cli import FolderConfigError, repo_root, resolve_folder  # noqa: E402
+from adr_cli import FolderConfigError, global_config_home, repo_root, resolve_folder  # noqa: E402
 
 PREFIX = "adr-std migrate:"
 PADDED_ADR = re.compile(r"^0+(\d+)-([a-z0-9-]+)\.md$")
@@ -313,7 +313,7 @@ def main() -> int:
     if args.path_arg:
         folder = (cwd / args.path_arg).resolve()  # relativo ao cwd; absoluto vale como está (ADR-1)
     else:
-        config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+        config_home = global_config_home()
         try:
             folder = resolve_folder(None, root, config_home, root)
         except FolderConfigError as exc:

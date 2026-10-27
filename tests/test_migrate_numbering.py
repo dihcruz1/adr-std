@@ -437,6 +437,17 @@ class ApplyTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertTrue(p.exists("docs/adr/1-a.md"))
 
+    def test_global_config_comes_from_appdata_on_windows(self):
+        p = Project(self, {"decisoes/0003-c.md": "# ADR-0003: C\n"})
+        appdata, xdg = p.root / "appdata", p.root / "xdg"
+        (appdata / "adr-std").mkdir(parents=True)
+        (appdata / "adr-std" / "config").write_text("path: decisoes\n", encoding="utf-8")
+        env = {"APPDATA": str(appdata), "XDG_CONFIG_HOME": str(xdg)}
+        with mock.patch.object(sys, "platform", "win32"), mock.patch.dict(os.environ, env):
+            code, _, _ = run_main(["--apply"], p.root)
+        self.assertEqual(code, 0)
+        self.assertTrue(p.exists("decisoes/3-c.md"))
+
     def test_adr_std_path_outside_root_exits_2(self):
         p = Project(self, {".adr-std": "path: ../fora\n"})
         with mock.patch.dict(os.environ, {"XDG_CONFIG_HOME": str(p.root / "cfg")}):

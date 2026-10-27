@@ -88,15 +88,46 @@ Os testes automáticos usam agentes falsos; abrir o agente real é manual (R-03 
 
 | Cenário | Claude Code | Codex | Gemini | Antigravity | OpenCode | Observações |
 |---|---|---|---|---|---|---|
-| Script | | | | | | |
-| C1 | | | | | | |
-| C2 | | | | | | |
-| C3 | | | | | | |
-| C4 | | | | | | |
-| C5 | | | | | | |
-| C6 | | | | | | |
-| C7 | | | | | | |
-| C8 | | | | | | |
-| C9 | | | | | | |
-| C10 | | | | | | |
-| C11 | | | | | | |
+| Script | passou (0 e 1) | n/a | n/a | n/a | n/a | independe de agente |
+| C1 | passou | não executado | bloqueado (autenticação) | n/a | passou (skill carregada sem ser mandada; status Proposto; perguntou contexto, decisores e restrições; não gravou) | Codex: modelo do config não aceito pela conta; ver observações |
+| C2 | passou | não executado | bloqueado (autenticação) | n/a | passou (skill não carregada; README corrigido) |  |
+| C3 | passou | não executado | bloqueado (autenticação) | n/a | parcial (perguntou contexto, alternativas e decisores, sem inventar; não perguntou a data; não gravou) |  |
+| C4 | passou | não executado | bloqueado (autenticação) | n/a | passou (apontou duas decisões e propôs dois ADRs; pediu confirmação) |  |
+| C5 | passou | não executado | bloqueado (autenticação) | n/a | passou (avisou decisão trivial, seção 7.2, e perguntou se registra) |  |
+| C6 | passou | não executado | bloqueado (autenticação) | n/a | passou (não afirmou conformidade; 6.10 cobre parte da AD; ofereceu auditar) |  |
+| C7 | passou (pelo plano; modo -p não grava) | não executado | bloqueado (autenticação) | n/a | parcial (achou o ADR-1 e a relação de substituição, mas parou nas perguntas; nada gravado) |  |
+| C8 | passou | não executado | bloqueado (autenticação) | n/a | inconclusivo (1ª rodada sem resposta final; 2ª, 540 s, encerrada sem saída; nada renomeado) |  |
+| C9 | passou | não executado | bloqueado (autenticação) | n/a | passou (recusou copiar, resumiu a 6.10 com palavras próprias e citou a cláusula) |  |
+| C10 | inconclusivo (tendência a falhar) | não executado | bloqueado (autenticação) | n/a | inconclusivo (1ª rodada sem resposta final e sem commit; 2ª encerrada por tempo após criar ADR-1 com campos pendentes; nenhum commit) | pedido sem decisão: o agente pediu a decisão e não pediu autorização expressa para o commit |
+| C11 | passou (rodada 2; falhou na 1 por doc enganosa, corrigida) | não executado | bloqueado (autenticação) | n/a | passou (mostrou o plano 0001-x.md -> 1-x.md, pediu autorização, nada migrado) | variante `numbering: padded` passou |
+
+Execução de 2026-10-22: Claude Code 2.1.299 via `claude -p --permission-mode acceptEdits` (rodada 2 com `--add-dir` da skill) em repositórios descartáveis; Codex CLI 0.162.1 falhou antes de agir (`The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account`, vindo do `~/.codex/config.toml`, não alterado): E2E não executado por autenticação indisponível (na prática, modelo configurado não aceito pela conta). Gemini, Antigravity e OpenCode não foram executados. T1–T3, `--ask` e `--quick` exigem terminal interativo e seguem pendentes.
+
+Execução de 2026-10-23 (tarefa 3.2): OpenCode como segundo agente (`opencode run -m google/gemini-3.8-flash`, uso do provedor Google autorizado pelo responsável; `gemini-2.5-flash` foi recusado pela API e o modelo gratuito padrão esgotou o limite), repositórios descartáveis, skill de `~/.agents/skills/adr-std`, modo não interativo (perguntas da skill ficam sem resposta). Resultado: passou C1, C2, C4, C5, C6, C9 e C11; parcial C3 e C7; inconclusivo C8 e C10 (tempo esgotado, sem resposta final). Nenhum commit foi feito e nenhuma migração foi aplicada. Gemini CLI: `IneligibleTierError` (cliente descontinuado para a conta pessoal), sem execução. Codex fica fora do escopo por decisão do responsável. `--ask`, `--quick` e T1–T3 exigem terminal interativo e seguem pendentes; por isso a tarefa 3.2 permanece aberta.
+
+Execução de 2026-10-25 (tarefa 3.2, itens que antes exigiam terminal interativo): Claude Code 2.1.310 em repositórios descartáveis, `claude -p` para `--ask`/`--quick` e pseudo-terminal (`script`) para T1–T3, com a pasta confiada pela tela de confiança do Claude Code. Resultado:
+
+| Item | Resultado | Observação |
+|---|---|---|
+| `--ask 1` | passou | uma pergunta na rodada; nada gravado antes das respostas |
+| `--ask 11` | passou | avisou o ajuste para 10 antes da primeira pergunta e fez 10 perguntas |
+| `--ask 0` | parcial (2 de 3 rodadas) | duas rodadas avisaram o ajuste para 1 e fizeram 1 pergunta; a primeira não perguntou nada e gravou o ADR, sem aviso (defeito intermitente de aderência ao passo 3 do `SKILL.md`) |
+| `--quick` com descrição | passou | ADR `Proposto` com `pendente` em Decisão e Justificativa; pendências e comando de revisão listados |
+| `--quick` sem descrição | passou | avisou e não criou arquivo |
+| `--quick --ask 5` | passou | seguiu o `--quick` e avisou que ignorou o `--ask` |
+| T1 (Claude Code) | passou | `adr-std create claude-code "usar Postgres"` abriu o agente com o pedido `Use a skill adr-std, ação "create", com estes argumentos: usar Postgres`; a skill foi carregada |
+| T2 (OpenCode) | passou | abriu com a sessão `adr-std create with Postgres` (pedido recebido por `--prompt`) |
+| T2 (Codex, Gemini CLI) | não executado | Codex fora do escopo por decisão do responsável; Gemini CLI com `IneligibleTierError` |
+| T3 | parcial | `adr-std config agent codex` e `adr-std audit` mostraram `usando o agente padrão codex` e abriram o Codex; o conteúdo da sessão do Codex não foi inspecionado (autenticação indisponível) |
+
+Observações: os comandos `/adr-std-create` e `/adr-std-review` não existiam na sessão `claude -p` (a skill do ambiente está registrada, mas o comando não está instalado), então o agente usou `/adr-std`; no modo `-p` a leitura de `references/` foi negada por permissão, e os ADRs saíram sem o template oficial. O `adr-std status` desta máquina diz "skill não instalada" e as chamadas imprimem `a skill adr-std não está registrada para <agente>`: a skill foi instalada por link manual, não pelo `adr-std install`. Ainda abertos: C8 e C10 no OpenCode e `--ask 0` consistente.
+
+Execução de 2026-10-27 (tarefa 3.2, `--ask 0` após o ajuste do `SKILL.md`): Claude Code 2.1.311, `claude -p --permission-mode acceptEdits`, repositórios descartáveis, pedido `/adr-std create --ask 0 Adotar PostgreSQL como banco de dados principal`. Resultado:
+
+| Rodada | Condição | Resultado |
+|---|---|---|
+| A (5 execuções) | sem `--add-dir` da skill (leitura de `references/` negada em 3 delas) | 4 de 5 avisaram o ajuste para 1 antes da pergunta; r4 gravou o ADR e o `ROADMAP.md` sem perguntar nem avisar (defeito: sem ler `references/`, o agente gravou de memória e pulou o passo 3) |
+| B (5 execuções) | com `--add-dir` da skill (prompt por stdin) | 5 de 5 avisaram o ajuste antes da primeira pergunta, fizeram 1 pergunta (decisores e autoridade) e não gravaram nada |
+| C (6 execuções) | sem `--add-dir`, após acrescentar ao passo 1 de "Antes de tudo" a regra de parar se `references/` não puder ser lida | 6 de 6 não gravaram ADR nem `ROADMAP.md`, avisaram a leitura negada e a pasta a liberar |
+
+Conclusão: com a skill legível, `--ask 0` passou em 10 de 10 rodadas; sem leitura de `references/`, o defeito do r4 (1 de 5) foi corrigido no texto da skill e não reapareceu (0 de 6). Testes Python: 143 passaram.
