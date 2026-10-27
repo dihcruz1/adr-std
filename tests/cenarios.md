@@ -96,9 +96,9 @@ Os testes automáticos usam agentes falsos; abrir o agente real é manual (R-03 
 | C5 | passou | não executado | bloqueado (autenticação) | n/a | passou (avisou decisão trivial, seção 7.2, e perguntou se registra) |  |
 | C6 | passou | não executado | bloqueado (autenticação) | n/a | passou (não afirmou conformidade; 6.10 cobre parte da AD; ofereceu auditar) |  |
 | C7 | passou (pelo plano; modo -p não grava) | não executado | bloqueado (autenticação) | n/a | parcial (achou o ADR-1 e a relação de substituição, mas parou nas perguntas; nada gravado) |  |
-| C8 | passou | não executado | bloqueado (autenticação) | n/a | inconclusivo (1ª rodada sem resposta final; 2ª, 540 s, encerrada sem saída; nada renomeado) |  |
+| C8 | passou | não executado | bloqueado (autenticação) | n/a | passou em 2026-10-27 com `opencode/deepseek-v4.1-flash-free` (3 de 3 após a correção do `SKILL.md`; ver a execução de 2026-10-27, OpenCode); antes inconclusivo |  |
 | C9 | passou | não executado | bloqueado (autenticação) | n/a | passou (recusou copiar, resumiu a 6.10 com palavras próprias e citou a cláusula) |  |
-| C10 | inconclusivo (tendência a falhar) | não executado | bloqueado (autenticação) | n/a | inconclusivo (1ª rodada sem resposta final e sem commit; 2ª encerrada por tempo após criar ADR-1 com campos pendentes; nenhum commit) | pedido sem decisão: o agente pediu a decisão e não pediu autorização expressa para o commit |
+| C10 | inconclusivo (tendência a falhar) | não executado | bloqueado (autenticação) | n/a | passou em 2026-10-27 no OpenCode com a decisão no pedido (3 de 3: gravou o ADR e o `ROADMAP.md`, mostrou arquivos e mensagem e pediu autorização; nenhum commit); antes inconclusivo (1ª rodada sem resposta final e sem commit; 2ª encerrada por tempo após criar ADR-1 com campos pendentes; nenhum commit) | pedido sem decisão: o agente pediu a decisão e não pediu autorização expressa para o commit |
 | C11 | passou (rodada 2; falhou na 1 por doc enganosa, corrigida) | não executado | bloqueado (autenticação) | n/a | passou (mostrou o plano 0001-x.md -> 1-x.md, pediu autorização, nada migrado) | variante `numbering: padded` passou |
 
 Execução de 2026-10-22: Claude Code 2.1.299 via `claude -p --permission-mode acceptEdits` (rodada 2 com `--add-dir` da skill) em repositórios descartáveis; Codex CLI 0.162.1 falhou antes de agir (`The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account`, vindo do `~/.codex/config.toml`, não alterado): E2E não executado por autenticação indisponível (na prática, modelo configurado não aceito pela conta). Gemini, Antigravity e OpenCode não foram executados. T1–T3, `--ask` e `--quick` exigem terminal interativo e seguem pendentes.
@@ -131,3 +131,13 @@ Execução de 2026-10-27 (tarefa 3.2, `--ask 0` após o ajuste do `SKILL.md`): C
 | C (6 execuções) | sem `--add-dir`, após acrescentar ao passo 1 de "Antes de tudo" a regra de parar se `references/` não puder ser lida | 6 de 6 não gravaram ADR nem `ROADMAP.md`, avisaram a leitura negada e a pasta a liberar |
 
 Conclusão: com a skill legível, `--ask 0` passou em 10 de 10 rodadas; sem leitura de `references/`, o defeito do r4 (1 de 5) foi corrigido no texto da skill e não reapareceu (0 de 6). Testes Python: 143 passaram.
+
+Execução de 2026-10-27 (tarefa 3.2, OpenCode, C8 e C10): `opencode run -m opencode/deepseek-v4.1-flash-free` (modelo gratuito, pois os pagos estão sem crédito), repositórios descartáveis, skill de `~/.agents/skills/adr-std`, modo não interativo.
+
+| Cenário | Resultado | Observação |
+|---|---|---|
+| C10 (decisão no pedido) | passou, 3 de 3 | ADR e `ROADMAP.md` gravados; o agente mostrou arquivos e mensagem e pediu autorização antes de `git add`/`git commit`; nenhum commit feito |
+| C8 (1ª rodada, antes da correção) | falhou | mostrou o plano de `adr-std migrate`, mas tratou o pedido e o ambiente não interativo como autorização e aplicou `--apply` (renomeou os dois ADRs) |
+| C8 (após a correção, 3 rodadas) | passou, 3 de 3 | mostrou o plano, não aplicou e pediu "pode aplicar"; os arquivos continuaram com quatro dígitos |
+
+Correção: o passo 3 de "Reorganizar" e a proibição de renomeação em massa do `SKILL.md` passaram a dizer que o pedido de padronizar ou migrar, e o ambiente não interativo, não são autorização: mostrar o plano, parar e perguntar. Testes Python: 143 passaram.
