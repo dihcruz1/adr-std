@@ -12,6 +12,9 @@ Funciona em qualquer agente que leia `SKILL.md`. Documentação e respostas em p
 
 1. Leia `references/guia-42010.md`, seções **1, 2, 3 e 15**. Elas definem o peso das regras
    (DEVE, DEVERIA, PODE), os limites da norma e o que é proibido afirmar.
+   **Se não conseguir ler `references/`** (leitura negada ou arquivo ausente), **não grave nem altere
+   nenhum ADR** nem o `ROADMAP.md`: avise o usuário, diga qual pasta precisa liberar e pare. Ler de
+   memória o guia ou o template não substitui a leitura.
 2. Procure as regras do projeto: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` e a convenção de ADRs
    (por exemplo `docs/architecture/ADR/CONVENTIONS.md`). Onde a regra do projeto for mais restritiva,
    ela prevalece. Onde conflitar com a norma, **avise o usuário** e peça decisão.
@@ -61,7 +64,8 @@ de `/adr-std <texto livre>`.
 1. Resuma o que entendeu do pedido antes de perguntar qualquer coisa.
 2. Avise se a decisão parece trivial, se parecem ser duas decisões, ou se já existe ADR relacionado.
 3. Conduza perguntas em rodadas de até **N** perguntas (opção `--ask N`, nomes curtos `-a N`):
-   padrão **3**; fora da faixa 1 a 10, use o valor mais próximo e avise o motivo.
+   padrão **3**; fora da faixa 1 a 10 (0 ou 11, por exemplo), faça no máximo o valor mais próximo
+   (1 ou 10) por rodada e, **antes da primeira pergunta**, avise que o valor foi ajustado e por quê.
 4. Com `--quick` (`-k`): não faça nenhuma pergunta — monte o ADR só com a descrição recebida,
    marque como `pendente` tudo que faltar (inclusive Decisão e Justificativa, exigidas pela norma);
    ao final, liste as pendências obrigatórias pela norma, as sugestões e o comando para completar
@@ -158,7 +162,9 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 - Não copiar texto da norma: resuma e cite a cláusula (por exemplo "42010:2022, 6.10.2").
 - Não juntar duas decisões num ADR; não apagar ADR aceito ou rejeitado.
 - Não inventar decisores, datas, alternativas ou justificativas.
-- Não fazer commit, push ou renomeação em massa sem autorização expressa.
+- Não fazer commit, push ou renomeação em massa sem autorização expressa. Um pedido que menciona commit
+  ("e já faça commit") não basta: grave o ADR, mostre os arquivos e a mensagem do commit e **pergunte
+  se pode commitar** antes de rodar `git add` ou `git commit`.
 
 ## Arquivos
 
