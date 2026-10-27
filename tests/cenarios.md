@@ -104,3 +104,20 @@ Os testes automáticos usam agentes falsos; abrir o agente real é manual (R-03 
 Execução de 2026-10-22: Claude Code 2.1.299 via `claude -p --permission-mode acceptEdits` (rodada 2 com `--add-dir` da skill) em repositórios descartáveis; Codex CLI 0.162.1 falhou antes de agir (`The 'gpt-6-sol' model is not supported when using Codex with a ChatGPT account`, vindo do `~/.codex/config.toml`, não alterado): E2E não executado por autenticação indisponível (na prática, modelo configurado não aceito pela conta). Gemini, Antigravity e OpenCode não foram executados. T1–T3, `--ask` e `--quick` exigem terminal interativo e seguem pendentes.
 
 Execução de 2026-10-23 (tarefa 3.2): OpenCode como segundo agente (`opencode run -m google/gemini-3.8-flash`, uso do provedor Google autorizado pelo responsável; `gemini-2.5-flash` foi recusado pela API e o modelo gratuito padrão esgotou o limite), repositórios descartáveis, skill de `~/.agents/skills/adr-std`, modo não interativo (perguntas da skill ficam sem resposta). Resultado: passou C1, C2, C4, C5, C6, C9 e C11; parcial C3 e C7; inconclusivo C8 e C10 (tempo esgotado, sem resposta final). Nenhum commit foi feito e nenhuma migração foi aplicada. Gemini CLI: `IneligibleTierError` (cliente descontinuado para a conta pessoal), sem execução. Codex fica fora do escopo por decisão do responsável. `--ask`, `--quick` e T1–T3 exigem terminal interativo e seguem pendentes; por isso a tarefa 3.2 permanece aberta.
+
+Execução de 2026-10-25 (tarefa 3.2, itens que antes exigiam terminal interativo): Claude Code 2.1.310 em repositórios descartáveis, `claude -p` para `--ask`/`--quick` e pseudo-terminal (`script`) para T1–T3, com a pasta confiada pela tela de confiança do Claude Code. Resultado:
+
+| Item | Resultado | Observação |
+|---|---|---|
+| `--ask 1` | passou | uma pergunta na rodada; nada gravado antes das respostas |
+| `--ask 11` | passou | avisou o ajuste para 10 antes da primeira pergunta e fez 10 perguntas |
+| `--ask 0` | parcial (2 de 3 rodadas) | duas rodadas avisaram o ajuste para 1 e fizeram 1 pergunta; a primeira não perguntou nada e gravou o ADR, sem aviso (defeito intermitente de aderência ao passo 3 do `SKILL.md`) |
+| `--quick` com descrição | passou | ADR `Proposto` com `pendente` em Decisão e Justificativa; pendências e comando de revisão listados |
+| `--quick` sem descrição | passou | avisou e não criou arquivo |
+| `--quick --ask 5` | passou | seguiu o `--quick` e avisou que ignorou o `--ask` |
+| T1 (Claude Code) | passou | `adr-std create claude-code "usar Postgres"` abriu o agente com o pedido `Use a skill adr-std, ação "create", com estes argumentos: usar Postgres`; a skill foi carregada |
+| T2 (OpenCode) | passou | abriu com a sessão `adr-std create with Postgres` (pedido recebido por `--prompt`) |
+| T2 (Codex, Gemini CLI) | não executado | Codex fora do escopo por decisão do responsável; Gemini CLI com `IneligibleTierError` |
+| T3 | parcial | `adr-std config agent codex` e `adr-std audit` mostraram `usando o agente padrão codex` e abriram o Codex; o conteúdo da sessão do Codex não foi inspecionado (autenticação indisponível) |
+
+Observações: os comandos `/adr-std-create` e `/adr-std-review` não existiam na sessão `claude -p` (a skill do ambiente está registrada, mas o comando não está instalado), então o agente usou `/adr-std`; no modo `-p` a leitura de `references/` foi negada por permissão, e os ADRs saíram sem o template oficial. O `adr-std status` desta máquina diz "skill não instalada" e as chamadas imprimem `a skill adr-std não está registrada para <agente>`: a skill foi instalada por link manual, não pelo `adr-std install`. Ainda abertos: C8 e C10 no OpenCode e `--ask 0` consistente.
