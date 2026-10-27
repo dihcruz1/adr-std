@@ -121,3 +121,13 @@ Execução de 2026-10-25 (tarefa 3.2, itens que antes exigiam terminal interativ
 | T3 | parcial | `adr-std config agent codex` e `adr-std audit` mostraram `usando o agente padrão codex` e abriram o Codex; o conteúdo da sessão do Codex não foi inspecionado (autenticação indisponível) |
 
 Observações: os comandos `/adr-std-create` e `/adr-std-review` não existiam na sessão `claude -p` (a skill do ambiente está registrada, mas o comando não está instalado), então o agente usou `/adr-std`; no modo `-p` a leitura de `references/` foi negada por permissão, e os ADRs saíram sem o template oficial. O `adr-std status` desta máquina diz "skill não instalada" e as chamadas imprimem `a skill adr-std não está registrada para <agente>`: a skill foi instalada por link manual, não pelo `adr-std install`. Ainda abertos: C8 e C10 no OpenCode e `--ask 0` consistente.
+
+Execução de 2026-10-27 (tarefa 3.2, `--ask 0` após o ajuste do `SKILL.md`): Claude Code 2.1.311, `claude -p --permission-mode acceptEdits`, repositórios descartáveis, pedido `/adr-std create --ask 0 Adotar PostgreSQL como banco de dados principal`. Resultado:
+
+| Rodada | Condição | Resultado |
+|---|---|---|
+| A (5 execuções) | sem `--add-dir` da skill (leitura de `references/` negada em 3 delas) | 4 de 5 avisaram o ajuste para 1 antes da pergunta; r4 gravou o ADR e o `ROADMAP.md` sem perguntar nem avisar (defeito: sem ler `references/`, o agente gravou de memória e pulou o passo 3) |
+| B (5 execuções) | com `--add-dir` da skill (prompt por stdin) | 5 de 5 avisaram o ajuste antes da primeira pergunta, fizeram 1 pergunta (decisores e autoridade) e não gravaram nada |
+| C (6 execuções) | sem `--add-dir`, após acrescentar ao passo 1 de "Antes de tudo" a regra de parar se `references/` não puder ser lida | 6 de 6 não gravaram ADR nem `ROADMAP.md`, avisaram a leitura negada e a pasta a liberar |
+
+Conclusão: com a skill legível, `--ask 0` passou em 10 de 10 rodadas; sem leitura de `references/`, o defeito do r4 (1 de 5) foi corrigido no texto da skill e não reapareceu (0 de 6). Testes Python: 143 passaram.
