@@ -120,7 +120,9 @@ Regras detalhadas: guia, seção 12.
 1. Rode a verificação em todos os ADRs e leia cada um contra `references/checklist.md`.
 2. Não altere o sentido de ADR aceito: mudança de decisão exige novo ADR que o substitua.
 3. Renumerar ou renomear arquivos quebra links: liste as referências afetadas, **mostre o plano** e
-   só execute com autorização.
+   só execute com autorização. O próprio pedido ("padronize", "migre", "renumere") **não** é
+   autorização, e ambiente não interativo também não: mostre o plano, **pare** e pergunte se pode
+   aplicar. Sem resposta, nada é renomeado.
 4. Mantenha relações recíprocas (se A substitui B, B fica `Substituído por ADR-A`).
 5. Tire o andamento de implementação do campo Status (ele descreve a decisão, não a execução).
 6. Encontrou ADRs com zeros à esquerda (`0005-x.md`) e nenhuma convenção declarada com zeros? Ofereça
@@ -162,7 +164,8 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 - Não copiar texto da norma: resuma e cite a cláusula (por exemplo "42010:2022, 6.10.2").
 - Não juntar duas decisões num ADR; não apagar ADR aceito ou rejeitado.
 - Não inventar decisores, datas, alternativas ou justificativas.
-- Não fazer commit, push ou renomeação em massa sem autorização expressa. Um pedido que menciona commit
+- Não fazer commit, push ou renomeação em massa sem autorização expressa (o pedido de padronizar ou migrar
+  não conta: mostre o plano e pergunte antes de renomear). Um pedido que menciona commit
   ("e já faça commit") não basta: grave o ADR, mostre os arquivos e a mensagem do commit e **pergunte
   se pode commitar** antes de rodar `git add` ou `git commit`.
 
