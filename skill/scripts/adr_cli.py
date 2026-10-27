@@ -59,6 +59,20 @@ def read_path_field(config_file: Path) -> Path | None:
     return None
 
 
+def global_config_home() -> Path:
+    """Base da config global (ADR-1): APPDATA no Windows; XDG_CONFIG_HOME ou ~/.config nos demais.
+
+    Variáveis vazias valem como ausentes. ADR_STD_APPDATA e ADR_STD_HOME existem só para isolar testes.
+    """
+    if sys.platform == "win32":
+        appdata = os.environ.get("ADR_STD_APPDATA") or os.environ.get("APPDATA")
+        if appdata:
+            return Path(appdata)
+        profile = os.environ.get("ADR_STD_HOME") or os.environ.get("USERPROFILE") or str(Path.home())
+        return Path(profile) / "AppData" / "Roaming"
+    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+
+
 class FolderConfigError(ValueError):
     """Configuração de pasta inválida (ex.: `path` do `.adr-std` fora da raiz)."""
 
@@ -383,7 +397,7 @@ def main() -> int:
 
     args = ap.parse_args()
     args.name_pattern = re.compile(args.name_pattern_raw)
-    config_home = Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config")
+    config_home = global_config_home()
     args.root = repo_root(Path.cwd())
     try:
         args.folder = resolve_folder(args.path_arg, Path.cwd(), config_home, args.root)

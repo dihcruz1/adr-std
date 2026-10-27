@@ -12,6 +12,9 @@ Funciona em qualquer agente que leia `SKILL.md`. Documentação e respostas em p
 
 1. Leia `references/guia-42010.md`, seções **1, 2, 3 e 15**. Elas definem o peso das regras
    (DEVE, DEVERIA, PODE), os limites da norma e o que é proibido afirmar.
+   **Se não conseguir ler `references/`** (leitura negada ou arquivo ausente), **não grave nem altere
+   nenhum ADR** nem o `ROADMAP.md`: avise o usuário, diga qual pasta precisa liberar e pare. Ler de
+   memória o guia ou o template não substitui a leitura.
 2. Procure as regras do projeto: `AGENTS.md`, `CLAUDE.md`, `GEMINI.md` e a convenção de ADRs
    (por exemplo `docs/architecture/ADR/CONVENTIONS.md`). Onde a regra do projeto for mais restritiva,
    ela prevalece. Onde conflitar com a norma, **avise o usuário** e peça decisão.
@@ -61,7 +64,8 @@ de `/adr-std <texto livre>`.
 1. Resuma o que entendeu do pedido antes de perguntar qualquer coisa.
 2. Avise se a decisão parece trivial, se parecem ser duas decisões, ou se já existe ADR relacionado.
 3. Conduza perguntas em rodadas de até **N** perguntas (opção `--ask N`, nomes curtos `-a N`):
-   padrão **3**; fora da faixa 1 a 10, use o valor mais próximo e avise o motivo.
+   padrão **3**; fora da faixa 1 a 10 (0 ou 11, por exemplo), faça no máximo o valor mais próximo
+   (1 ou 10) por rodada e, **antes da primeira pergunta**, avise que o valor foi ajustado e por quê.
 4. Com `--quick` (`-k`): não faça nenhuma pergunta — monte o ADR só com a descrição recebida,
    marque como `pendente` tudo que faltar (inclusive Decisão e Justificativa, exigidas pela norma);
    ao final, liste as pendências obrigatórias pela norma, as sugestões e o comando para completar
@@ -120,7 +124,7 @@ Regras detalhadas: guia, seção 12.
 4. Mantenha relações recíprocas (se A substitui B, B fica `Substituído por ADR-A`).
 5. Tire o andamento de implementação do campo Status (ele descreve a decisão, não a execução).
 6. Encontrou ADRs com zeros à esquerda (`0005-x.md`) e nenhuma convenção declarada com zeros? Ofereça
-   `adr-std migrate` (`0005-x.md` → `5-x.md`, mesmo número, links corrigidos): rode sem `--apply`, **mostre o plano**
+   `adr-std migrate` (ou `python3 scripts/migrate_numbering.py` se o comando não estiver no PATH; `0005-x.md` → `5-x.md`, mesmo número, links corrigidos): rode sem `--apply`, **mostre o plano**
    e só aplique (`--apply`) com autorização; nunca renomeie por conta própria. O `adr-std update` também executa o
    plano no projeto atual (`--no-migrate` pula). Projeto que mantém zeros declara `numbering: padded` no
    `.adr-std` e não é migrado.
@@ -158,7 +162,9 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 - Não copiar texto da norma: resuma e cite a cláusula (por exemplo "42010:2022, 6.10.2").
 - Não juntar duas decisões num ADR; não apagar ADR aceito ou rejeitado.
 - Não inventar decisores, datas, alternativas ou justificativas.
-- Não fazer commit, push ou renomeação em massa sem autorização expressa.
+- Não fazer commit, push ou renomeação em massa sem autorização expressa. Um pedido que menciona commit
+  ("e já faça commit") não basta: grave o ADR, mostre os arquivos e a mensagem do commit e **pergunte
+  se pode commitar** antes de rodar `git add` ou `git commit`.
 
 ## Arquivos
 
@@ -168,4 +174,5 @@ Se não puder executar código, aplique o checklist inteiro à mão.
 | `references/template-madr.md` | Template do ADR, com os campos da 6.10 |
 | `references/checklist.md` | Checklist de conformidade, com a origem de cada item |
 | `scripts/check_adr.py` | Verificação automática dos itens `[auto]` (Python 3, só biblioteca padrão) |
-| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`, `migrate`); o agente não precisa dele, mas pode usá-lo |
+| `scripts/adr_cli.py` | Comandos mecânicos do terminal (`new`, `list`, `link`, `organize --dry-run`); o agente não precisa dele, mas pode usá-lo |
+| `scripts/migrate_numbering.py` | Migração para a numeração sem zeros (`adr-std migrate`); sem o comando no PATH, `python3 scripts/migrate_numbering.py [--path PASTA] [--apply]`, sempre sem `--apply` primeiro |

@@ -1,46 +1,51 @@
 # Domain Docs
 
-Como as engineering skills devem consumir a documentação de domínio deste repo ao explorar o código.
+How the engineering skills should consume this repo's domain documentation when exploring the codebase.
 
-## Antes de explorar, leia estes
+## Before exploring, read these
 
-- **`GLOSSARY.md`** na raiz do repo (se existir).
-- **`docs/architecture/ADR/`**: leia os ADRs que tocam a área em que vai trabalhar.
-  - O caminho padrão dos ADRs neste projeto é `docs/architecture/ADR/` (decisão registrada no **ADR-1**).
-  - Leia também o **`docs/architecture/ADR/ROADMAP.md`** para entender o estado de implementação de cada decisão.
+- **`GLOSSARY.md`** at the repo root, or
+- **`GLOSSARY-MAP.md`** at the repo root if it exists: it points at one `GLOSSARY.md` per context. Read each one relevant to the topic.
+- **`docs/architecture/ADR/`**: read ADRs that touch the area you're about to work in. In multi-context repos, also check `src/<context>/docs/architecture/ADR/` for context-scoped decisions.
 
-Se algum desses arquivos não existir, **prossiga silenciosamente**. Não sinalize a ausência; não sugira criá-los antecipadamente.
+If any of these files don't exist, **proceed silently**. Don't flag their absence; don't suggest creating them upfront. The `/domain-modeling` skill (reached via `/grill-with-docs` and `/improve-codebase-architecture`) creates them lazily when terms or decisions actually get resolved.
 
-## Estrutura de arquivos (single-context)
+## File structure
+
+Single-context repo (most repos):
 
 ```
 /
 ├── GLOSSARY.md
-├── docs/
-│   ├── architecture/
-│   │   └── ADR/
-│   │       ├── ROADMAP.md
-│   │       ├── 1-caminho-padrao-dos-adrs-e-personalizacao.md
-│   │       ├── 2-roadmap-rastreabilidade-etapas-specs.md
-│   │       └── 3-atualizacao-automatica-do-roadmap-pelo-agente.md
-│   ├── agents/          ← este diretório
-│   └── specs/           ← especificações técnicas por versão
-└── skill/               ← conteúdo instalado nos agentes
+├── docs/architecture/ADR/
+│   ├── 0001-event-sourced-orders.md
+│   └── 0002-postgres-for-write-model.md
+└── src/
 ```
 
-## Use o vocabulário do GLOSSARY.md
+Multi-context repo (presence of `GLOSSARY-MAP.md` at the root):
 
-Quando sua saída nomear um conceito de domínio, use o termo conforme definido em `GLOSSARY.md`.
-Não derive para sinônimos que o glossário evita explicitamente.
+```
+/
+├── GLOSSARY-MAP.md
+├── docs/architecture/ADR/                          ← system-wide decisions
+└── src/
+    ├── ordering/
+    │   ├── GLOSSARY.md
+    │   └── docs/architecture/ADR/                  ← context-specific decisions
+    └── billing/
+        ├── GLOSSARY.md
+        └── docs/architecture/ADR/
+```
 
-Se o conceito não estiver no glossário ainda, é um sinal: ou você está inventando linguagem que o projeto não usa (reconsidere) ou há uma lacuna real (anote para `/domain-modeling`).
+## Use the glossary's vocabulary
 
-## Flag de conflito com ADR
+When your output names a domain concept (in an issue title, a refactor proposal, a hypothesis, a test name), use the term as defined in `GLOSSARY.md`. Don't drift to synonyms the glossary explicitly avoids.
 
-Se sua saída contradizer um ADR existente, sinalize explicitamente em vez de substituir silenciosamente:
+If the concept you need isn't in the glossary yet, that's a signal: either you're inventing language the project doesn't use (reconsider) or there's a real gap (note it for `/domain-modeling`).
 
-> _Contradiz ADR-000X (...), mas vale reabrir porque…_
+## Flag ADR conflicts
 
-## Atualização automática do ROADMAP
+If your output contradicts an existing ADR, surface it explicitly rather than silently overriding:
 
-Conforme **ADR-3**: sempre que criar ou modificar um ADR ou uma Spec, atualize a linha correspondente em `docs/architecture/ADR/ROADMAP.md` silenciosamente, sem pedir confirmação, e informe ao usuário ao final.
+> _Contradicts ADR-0007 (event-sourced orders), but worth reopening because…_
