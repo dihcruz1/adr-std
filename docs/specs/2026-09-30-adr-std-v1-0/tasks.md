@@ -164,7 +164,8 @@
 
 ## 9. Validação final
 
-- [ ] 9.1 — Rodar `tests/cenarios.md` em pelo menos dois agentes e registrar; depende de 8.2. **Desbloqueada (2026-10-01):** 8.2 concluída (push e tag `v1.0.0` publicados). Cenários mecanicamente verificáveis com a skill instalada em `HOME` temporário via agente headless local ficam registrados junto do item 7 do escopo desta sessão (consolidação de todas as versões); o restante, que depende de release pública real e de agentes de terceiros fora deste ambiente, permanece pendente de execução humana/externa.
+- [x] 9.1 — Rodar `tests/cenarios.md` em pelo menos dois agentes e registrar; depende de 8.2. **Desbloqueada (2026-10-01):** 8.2 concluída (push e tag `v1.0.0` publicados). Cenários mecanicamente verificáveis com a skill instalada em `HOME` temporário via agente headless local ficam registrados junto do item 7 do escopo desta sessão (consolidação de todas as versões); o restante, que depende de release pública real e de agentes de terceiros fora deste ambiente, permanece pendente de execução humana/externa.
+  - **Evidência (2026-10-27):** `tests/cenarios.md` executado em dois agentes (Claude Code e OpenCode), com C1–C11, `--ask`, `--quick` e T1–T3 registrados e conclusivos; Codex fora de escopo por decisão do responsável e Gemini CLI inelegível. Detalhe na tarefa 3.2 da spec `2026-10-05-close-validation-gaps`.
 - [x] 9.2 — Verificar a entrega contra requisitos, design e tarefas (auditoria 360°) e registrar o resultado aqui.
   - **Evidência (2026-10-01):** auditoria requisito → tarefa → implementação → teste, cruzando `requirements.md`, `design.md` e as evidências registradas acima (não depende de 8.2, por isso executável agora).
     - **RF-01 a RF-16, RF-19:** cada um tem pelo menos uma tarefa em 3.x/4.x/6.1/8.1 com evidência de teste verde (bash: 32/32 em `tests/test_cli.sh`; Windows: 20/20 em `tests/test_cli.ps1`, nesta sessão). Nenhum requisito funcional órfão.
