@@ -1,6 +1,34 @@
 __pycache__/
 *.pyc
 
+# --- vscode
+.code-workspace
+
+# --- Pastas de pacotes de skills ---
+.specify
+.superpowers
+
+# --- Configuração local do OpenSpec ---
+openspec/
+
+# --- Playwright ---
+.playwright-cli
+.playwright-mcp
+playwright-auth/
+
+# --- Outras Pastas de Testes Local ---
+.phpunit.result.cache
+semantic-review
+
+# --- Configuração de agentes de IA ---
+.agents
+.claude
+.continue
+.gemini
+.github
+.kiro
+.opencode
+
 # --- Instruções locais do agente ---
 CLAUDE.md
 
