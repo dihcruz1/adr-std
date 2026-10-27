@@ -48,9 +48,9 @@ RF-01/RF-02/RF-03 e SEG-01/02 → D-01/02/03 → 2.1; RF-04 → D-03/04 → 3.1/
 | RF-02 (resolução compartilhada, precedência preservada) | `global_config_home()` usada por `adr_cli.main` e `migrate_numbering.main`; `ResolveFolderTest::test_precedence` | Atendido |
 | RF-03 (gravação do wrapper lida pela CLI/migração) | Caso Pester só Windows (`config path` em APPDATA lido por `new` e `list`) passou no job Windows do CI; unitários cobrem a leitura | Atendido |
 | RF-04 (identificar junção NTFS, `.cmd`, PATH e conversa; sem tratar skip como aprovação) | Pester local 57/0/0 (antes 49/7/1); Windows nativo: 54 passados, 0 falhas, 7 pulados por desenho (conversa), 0 inconclusivos, incluindo junção NTFS (`--link`), `adr-std.cmd` via `cmd.exe` e PATH do usuário (tarefa 3.5, [run 40225928166](https://github.com/dihcruz1/adr-std/actions/runs/40225928166)) | Atendido (os 7 pulados de conversa não contam como aprovação) |
-| RF-05 (cenários reais em dois agentes) | Claude Code: Script, C1–C9 e C11 passaram, C10 inconclusivo; OpenCode (2026-10-23): C1, C2, C4, C5, C6, C9 e C11 passaram, C3 e C7 parciais, C8 e C10 inconclusivos; Codex fora de escopo; `--ask`, `--quick` e T1–T3 não executados (terminal interativo) | Aberto (parcial) |
+| RF-05 (cenários reais em dois agentes) | Claude Code e OpenCode: C1–C11 conclusivos (Claude Code em 2026-10-22/27; OpenCode em 2026-10-23/27, com C3, C7, C8 e C10 fechados após correções do `SKILL.md`); `--ask` 0/1/11, `--quick` com/sem descrição e T1–T3 executados (tarefa 3.2); Codex fora de escopo por decisão do responsável e Gemini CLI inelegível (`IneligibleTierError`), registrados como não executados | Atendido (limitações aceitas: OpenCode em modo não interativo com modelo gratuito; T3 sem inspeção da sessão do Codex) |
 | RF-06 (releases e CI por evidência externa) | tarefa 3.3 | Atendido |
 | RF-07 (`testResults.xml`) | tarefa 3.4 | Atendido |
 | RF-08 (número da versão) | `VERSION` 3.0.0 e `CHANGELOG.md`; tag e publicação não feitas | Atendido (preparo) |
 
-Pendências: C8 e C10 no OpenCode (e C10 com a decisão no pedido); `--ask` 0/1/11, `--quick` com/sem descrição e T1–T3, que exigem terminal interativo; ao concluí-los, fechar a 3.2 e o RF-05 em commit à parte.
+Pendências: nenhuma. Tag e publicação de nova versão dependem de autorização pontual.

@@ -5,6 +5,12 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Corrigido
+- `SKILL.md`: `--ask` fora da faixa (0 ou acima de 10) passa a avisar o ajuste antes da primeira pergunta e a não gravar nada antes das respostas.
+- `SKILL.md`: se `references/` não puder ser lida, o agente para sem gravar e avisa a pasta a liberar.
+- `SKILL.md`: antes de commit o agente pede autorização expressa, mesmo com a decisão no pedido.
+- `SKILL.md`: pedir para padronizar ou migrar a numeração não autoriza renomear; o agente mostra o plano do `adr-std migrate`, para e pergunta.
+
 ## [3.0.0] - 2026-10-22
 
 ### Alterado (quebra de compatibilidade)
