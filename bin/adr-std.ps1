@@ -168,13 +168,23 @@ function Remove-State([string]$Key) {
 function Get-StateAgent {
     foreach ($l in Get-StateLine) {
         $c = $l -split "`t"
-        if ($c[0] -eq 'agent') { [pscustomobject]@{ Id = $c[1]; Dest = $c[2] } }
+        if ($c[0] -eq 'agent') { [pscustomobject]@{ Id = $c[1]; Dest = $c[2]; Mode = $(if ($c.Count -gt 3) { $c[3] } else { '' }) } }
     }
 }
 
-function Add-StateAgent([string]$Id, [string]$Dest) {
+# Modo (link|copy) do agente: 4ª coluna da linha `agent`; sem ela, cai no `mode` global; sem nenhum, vazio.
+function Get-StateAgentMode([string]$Id) {
+    $e = Get-StateAgent | Where-Object { $_.Id -eq $Id } | Select-Object -First 1
+    if ($e -and $e.Mode) { return $e.Mode }
+    $g = Get-State 'mode'
+    if ($g) { return $g }
+    return ''
+}
+
+function Add-StateAgent([string]$Id, [string]$Dest, [string]$Mode = '') {
     $keep = @(Get-StateLine | Where-Object { $c = $_ -split "`t"; -not ($c[0] -eq 'agent' -and $c[1] -eq $Id) })
-    Save-StateLine ($keep + "agent`t$Id`t$Dest")
+    $line = if ($Mode) { "agent`t$Id`t$Dest`t$Mode" } else { "agent`t$Id`t$Dest" }
+    Save-StateLine ($keep + $line)
 }
 
 function Remove-StateAgent([string]$Id) {
@@ -205,13 +215,14 @@ function Remove-StateCommandsFor([string]$Id) {
 $script:Agents = @()
 $script:All = $false
 $script:Link = $false
+$script:Adopt = $false
 $script:Dry = $false
 $script:NoCommands = $false
 $script:NoMigrate = $false
 $script:ReqVersion = ''
 
 function Read-Option([string[]]$Tokens) {
-    $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Dry = $false; $script:NoCommands = $false; $script:NoMigrate = $false; $script:ReqVersion = ''
+    $script:Agents = @(); $script:All = $false; $script:Link = $false; $script:Adopt = $false; $script:Dry = $false; $script:NoCommands = $false; $script:NoMigrate = $false; $script:ReqVersion = ''
     $i = 0
     while ($i -lt $Tokens.Count) {
         $t = $Tokens[$i]; $i++
@@ -220,6 +231,7 @@ function Read-Option([string[]]$Tokens) {
             '^--agent=(.+)$' { $Tokens = @($Matches[1]) + $Tokens[$i..($Tokens.Count)]; $i = 0; continue }
             '^--all$'      { $script:All = $true; continue }
             '^--link$'     { $script:Link = $true; continue }
+            '^--adopt$'    { $script:Adopt = $true; continue }
             '^--dry-run$'  { $script:Dry = $true; continue }
             '^--no-commands$' { $script:NoCommands = $true; continue }
             '^--no-migrate$' { $script:NoMigrate = $true; continue }
@@ -242,16 +254,103 @@ function Read-Option([string[]]$Tokens) {
 
 # --- instalação ---------------------------------------------------------------
 
+function Test-ReparsePoint($Item) {
+    # Só junção e link simbólico contam como link; outros reparse points (OneDrive, dedup) são pasta comum.
+    return ($null -ne $Item) -and [bool]($Item.Attributes -band [IO.FileAttributes]::ReparsePoint) -and ($Item.LinkType -in 'Junction', 'SymbolicLink')
+}
+
+# Caminho físico: troca por seu destino cada componente que seja link (equivale ao `pwd -P` do Bash), para
+# comparar um link correto atrás de uma junção ou link de pasta-pai. Profundidade limitada contra ciclos.
+function Get-PhysicalPath([string]$Path, [int]$Depth = 0) {
+    $full = [IO.Path]::GetFullPath($Path)
+    $root = [IO.Path]::GetPathRoot($full)
+    if ($Depth -gt 10) { return $full }
+    $cur = $root
+    foreach ($seg in ($full.Substring($root.Length) -split '[\\/]' | Where-Object { $_ })) {
+        $cur = Join-Path $cur $seg
+        $item = Get-Item -LiteralPath $cur -Force -ErrorAction SilentlyContinue
+        if ($item -and (Test-ReparsePoint $item)) {
+            $r = Resolve-LinkChain $cur $Depth
+            if ($r) { $cur = $r }
+        }
+    }
+    # a raiz (C:\ ou /) mantém a barra final; qualquer outro caminho não a tem
+    if ($cur.Length -gt $root.Length) { $cur = $cur.TrimEnd('\', '/') }
+    return $cur
+}
+
+# Segue a cadeia de links (junções e links simbólicos) e devolve o destino final, existente e que não é link.
+# No máximo 10 saltos; ciclo, link quebrado ou caminho inexistente devolvem $null.
+function Resolve-LinkChain([string]$Path, [int]$Depth = 0) {
+    $cur = $Path
+    $seen = @{}
+    $hops = 0
+    while ($true) {
+        $item = Get-Item -LiteralPath $cur -Force -ErrorAction SilentlyContinue
+        if ($null -eq $item) { return $null }
+        if (-not (Test-ReparsePoint $item)) { return (Get-PhysicalPath ([IO.Path]::GetFullPath($cur)) ($Depth + 1)) }
+        if ($hops -ge 10) { return $null }
+        $key = $cur.ToLowerInvariant()
+        if ($seen.ContainsKey($key)) { return $null }
+        $seen[$key] = $true
+        $target = @($item.Target)[0]
+        if (-not $target) { return $null }
+        if (-not [IO.Path]::IsPathRooted($target)) { $target = Join-Path (Split-Path -Parent $cur) $target }
+        $cur = [IO.Path]::GetFullPath($target)
+        $hops++
+    }
+}
+
+# Valor de "name" no frontmatter (primeiro bloco ---, até 20 linhas) do SKILL.md da pasta; vazio se ausente.
+# Lê como texto: o conteúdo nunca é executado nem expandido (SEG-03).
+function Get-SkillName([string]$Dir) {
+    $file = Join-Path $Dir 'SKILL.md'
+    if (-not (Test-Path -LiteralPath $file -PathType Leaf)) { return '' }
+    $lines = @(Get-Content -LiteralPath $file -TotalCount 20 -Encoding UTF8 -ErrorAction SilentlyContinue)
+    if ($lines.Count -eq 0) { return '' }
+    $first = ([string]$lines[0]).TrimStart([char]0xFEFF).TrimEnd("`r")
+    if ($first -ne '---') { return '' }
+    for ($n = 1; $n -lt $lines.Count; $n++) {
+        $l = ([string]$lines[$n]).TrimEnd("`r")
+        if ($l -eq '---') { break }
+        if ($l -cmatch '^name:[ \t]*(.*?)[ \t\r]*$') { return $Matches[1] }
+    }
+    return ''
+}
+
+# O destino é um link cuja cadeia termina na pasta skill/ da fonte (D-7: $Src/skill ou $DataDir/skill)?
+function Test-PointsToSource([string]$Dest) {
+    if (-not (Test-ReparsePoint (Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue))) { return $false }
+    $final = Resolve-LinkChain $Dest
+    if (-not $final) { return $false }
+    foreach ($s in @((Join-Path $Src 'skill'), (Join-Path $DataDir 'skill'))) {
+        $real = Resolve-LinkChain $s
+        if ($real -and ($real -ieq $final)) { return $true }
+    }
+    return $false
+}
+
+# A pasta foi instalada por este comando? (registrada no estado E com marcador ou link para a fonte)
 function Test-OwnedBySelf([string]$Dest) {
     $registered = @(Get-StateAgent | ForEach-Object { $_.Dest })
     if ($registered -notcontains $Dest) { return $false }
     $item = Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue
     if ($null -eq $item) { return $false }
-    if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) {
-        $target = @($item.Target)[0]
-        return ($target -eq (Join-Path $Src 'skill')) -or ($target -eq (Join-Path $DataDir 'skill'))
-    }
+    if (Test-ReparsePoint $item) { return (Test-PointsToSource $Dest) }
     return (Test-Path (Join-Path $Dest $Marker))
+}
+
+# Classifica o destino, sem escrever nada: absent, ours, repo-link, foreign-adr-std, foreign-other.
+function Get-DestClass([string]$Dest) {
+    $item = Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue
+    if ($null -eq $item) { return 'absent' }
+    if (Test-OwnedBySelf $Dest) { return 'ours' }
+    if (Test-ReparsePoint $item) {
+        if (Test-PointsToSource $Dest) { return 'repo-link' }
+        if (-not (Resolve-LinkChain $Dest)) { return 'foreign-other' }
+    }
+    if ((Get-SkillName $Dest) -ceq 'adr-std') { return 'foreign-adr-std' }
+    return 'foreign-other'
 }
 
 function Remove-Target([string]$Dest) {
@@ -260,31 +359,145 @@ function Remove-Target([string]$Dest) {
     else { Remove-Item -LiteralPath $Dest -Recurse -Force }
 }
 
+# Próximo nome livre <pasta>.bak-<AAAA-MM-DD> (sufixo -2, -3...), sem criar nada. ADR_STD_TODAY fixa a data nos testes.
+function Get-BackupPath([string]$Dest) {
+    $d = $Dest.TrimEnd('\', '/')
+    $day = if ($env:ADR_STD_TODAY) { $env:ADR_STD_TODAY } else { Get-Date -Format 'yyyy-MM-dd' }
+    $bak = "$d.bak-$day"
+    $n = 1
+    while (Get-Item -LiteralPath $bak -Force -ErrorAction SilentlyContinue) { $n++; $bak = "$d.bak-$day-$n" }
+    return $bak
+}
+
+# Move a pasta (ou o link, sem desreferenciar) para o backup; devolve o caminho, ou $null se o mv falhar (origem intacta).
+function Backup-Dest([string]$Dest) {
+    $d = $Dest.TrimEnd('\', '/')
+    $bak = Get-BackupPath $d
+    try { Move-Item -LiteralPath $d -Destination $bak -ErrorAction Stop } catch { return $null }
+    return $bak
+}
+
+# Instala em $Dest; devolve $true/$false (nunca encerra o comando, para o laço seguir nos demais destinos).
 function Install-To([string]$Dest) {
-    if ((Test-Path -LiteralPath $Dest) -or (Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue)) {
-        if (Test-OwnedBySelf $Dest) { Remove-Target $Dest }
+    $owned = $false
+    if (Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue) {
+        if (Test-OwnedBySelf $Dest) { $owned = $true }
         else {
             Write-Err "$Dest já existe e não foi instalada pelo adr-std; nada foi alterado. Remova ou renomeie a pasta e tente de novo."
-            exit 4
+            return $false
         }
     }
-    New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Dest) | Out-Null
-    if ($script:Link) {
-        New-Item -ItemType Junction -Path $Dest -Target (Join-Path $Src 'skill') | Out-Null
-    } else {
-        $tmp = "$Dest.tmp"
-        if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
-        Copy-Item -Recurse -Path (Join-Path $Src 'skill') -Destination $tmp
-        Set-Content -Path (Join-Path $tmp $Marker) -Value ("adr-std {0} instalado em {1}" -f (Get-AdrStdVersion), (Get-Date -Format 'yyyy-MM-dd'))
-        Move-Item -Path $tmp -Destination $Dest
+    $tmp = "$Dest.tmp"
+    try {
+        if ($owned) { Remove-Target $Dest }
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Dest) | Out-Null
+        if ($script:Link) {
+            New-Item -ItemType Junction -Path $Dest -Target (Join-Path $Src 'skill') | Out-Null
+        } else {
+            if (Test-Path $tmp) { Remove-Item -Recurse -Force $tmp }
+            Copy-Item -Recurse -Path (Join-Path $Src 'skill') -Destination $tmp
+            Set-Content -Path (Join-Path $tmp $Marker) -Value ("adr-std {0} instalado em {1}" -f (Get-AdrStdVersion), (Get-Date -Format 'yyyy-MM-dd'))
+            Move-Item -Path $tmp -Destination $Dest
+        }
+    } catch {
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $tmp
+        Write-Err "não foi possível instalar em ${Dest}: $($_.Exception.Message)"
+        return $false
     }
     Write-Host ("  ✔ adr-std {0} → {1}" -f (Get-AdrStdVersion), $Dest)
+    return $true
 }
 
 function Read-Answer([string]$Prompt) {
     if ($null -ne $env:ADR_STD_ANSWER) { Write-Host "$Prompt$($env:ADR_STD_ANSWER)"; return $env:ADR_STD_ANSWER }
     if ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) { return (Read-Host $Prompt) }
     return $null
+}
+
+# Há como perguntar? Só verifica, sem ler a resposta (usado pela simulação, RF-10).
+function Test-CanAsk {
+    if ($null -ne $env:ADR_STD_ANSWER) { return $true }
+    return ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected)
+}
+
+# Age sobre um destino já classificado. O resultado fica em $script:ActResult (installed, updated,
+# adopted-in-place, adopted-with-backup, skipped:<motivo>). Registra no estado o que instalou ou adotou.
+$script:ActResult = ''
+function Invoke-ActOnDest([string]$Id, [string]$Class, [string]$Dest) {
+    $script:ActResult = ''
+    $savedLink = $script:Link
+    if ($Class -eq 'absent' -or $Class -eq 'ours') {
+        # D-16: destino nosso em modo link continua link, mesmo sem --link
+        if ($Class -eq 'ours' -and (Get-StateAgentMode $Id) -eq 'link') { $script:Link = $true }
+        if (Install-To $Dest) {
+            Add-StateAgent $Id $Dest $(if ($script:Link) { 'link' } else { 'copy' })
+            $script:ActResult = if ($Class -eq 'absent') { 'installed' } else { 'updated' }
+        } else { $script:ActResult = 'skipped:falha-na-instalacao' }
+        $script:Link = $savedLink
+    }
+    elseif ($Class -eq 'repo-link') {
+        Add-StateAgent $Id $Dest 'link'
+        Write-Host "  ✔ $Dest já aponta para o repositório; registrado sem alterar"
+        $script:ActResult = 'adopted-in-place'
+    }
+    elseif ($Class -eq 'foreign-adr-std') {
+        $item = Get-Item -LiteralPath $Dest -Force
+        $kind = if (Test-ReparsePoint $item) { "link para $(@($item.Target)[0])" } else { 'pasta (cópia)' }
+        $bak = Get-BackupPath $Dest
+        Write-Host "  ! $Dest é um adr-std que não foi instalado por este comando ($kind)."
+        Write-Host "    Será movido para $bak e substituído pela versão $(Get-AdrStdVersion)."
+        $confirmed = $false
+        if ($script:Adopt) { $confirmed = $true }
+        else {
+            $ans = Read-Answer '    Adotar? [s/N] '
+            if ($null -eq $ans) {
+                Write-Host "  ! sem terminal para confirmar; $Dest mantido (use --adopt para adotar sem perguntar)"
+                $script:ActResult = 'skipped:sem-terminal'
+            } elseif ($ans -eq 's') { $confirmed = $true }
+            else {
+                Write-Host "  • adoção recusada; $Dest mantido"
+                $script:ActResult = 'skipped:recusado'
+            }
+        }
+        if ($confirmed) {
+            if (-not (Backup-Dest $Dest)) {
+                Write-Err "não foi possível criar o backup de $Dest; nada foi alterado"
+                $script:ActResult = 'skipped:backup-falhou'
+            } elseif (Install-To $Dest) {
+                Add-StateAgent $Id $Dest $(if ($script:Link) { 'link' } else { 'copy' })
+                Write-Host "  ✔ backup em $bak"
+                $script:ActResult = 'adopted-with-backup'
+            } else {
+                # restaura o original para o agente não ficar sem skill
+                $restored = $false
+                if (-not (Get-Item -LiteralPath $Dest -Force -ErrorAction SilentlyContinue)) {
+                    try { Move-Item -LiteralPath $bak -Destination $Dest.TrimEnd('\', '/') -ErrorAction Stop; $restored = $true } catch { $restored = $false }
+                }
+                if ($restored) { Write-Err "falha ao instalar em $Dest; o original foi restaurado" }
+                else { Write-Err "falha ao instalar em $Dest; o original está em $bak" }
+                $script:ActResult = 'skipped:falha-na-instalacao'
+            }
+        }
+    }
+    else {
+        Write-Host "  ! $Dest existe e não é o adr-std; mantido"
+        $script:ActResult = 'skipped:outra-skill'
+    }
+}
+
+# Ação que o install tomaria num destino classificado, sem executar nada (RF-10).
+function Get-DryRunAction([string]$Id, [string]$Class) {
+    switch ($Class) {
+        'absent' { return 'instalaria' }
+        'ours' { if ($script:Link -or (Get-StateAgentMode $Id) -eq 'link') { return 'atualizaria (link)' } else { return 'atualizaria' } }
+        'repo-link' { return 'registraria sem alterar' }
+        'foreign-adr-std' {
+            if ($script:Adopt) { return 'adotaria (com backup)' }
+            if (Test-CanAsk) { return 'perguntaria' }
+            return 'pularia (sem-terminal; use --adopt)'
+        }
+        default { return 'pularia (outra-skill)' }
+    }
 }
 
 function Select-Agent {
@@ -338,21 +551,51 @@ function Invoke-Install([string[]]$Tokens) {
     }
     if ($ids.Count -eq 0) { $ids = @(Select-Agent) }
     $done = @{}
+    $results = @{}
+    $skipped = @()
+    $anyOk = $false
     foreach ($id in $ids) {
         $dest = Get-TargetFor $id
         if (-not (Test-Detected $id)) { Write-Host "  ! $id não foi encontrado neste computador; instalando mesmo assim" }
-        if (-not $done.ContainsKey($dest)) {
-            $done[$dest] = $true
-            if ($script:Dry) { Write-Host ("  (simulação) instalaria adr-std {0} em {1}" -f (Get-AdrStdVersion), $dest) }
-            else { Install-To $dest }
+        if ($done.ContainsKey($dest)) {
+            # pasta compartilhada já tratada: não classifica nem age de novo (RF-12)
+            if ($script:Dry) { continue }
+            $prev = $results[$dest]
+            if ($prev.Result -notlike 'skipped:*') { Add-StateAgent $id $dest (Get-StateAgentMode $prev.Id) }
+            continue
         }
-        if (-not $script:Dry) { Add-StateAgent $id $dest }
+        $done[$dest] = $true
+        $class = Get-DestClass $dest
+        if ($script:Dry) {
+            Write-Host ("  (simulação) {0}: {1} -> {2}" -f $dest, $class, (Get-DryRunAction $id $class))
+            continue
+        }
+        Invoke-ActOnDest $id $class $dest
+        $results[$dest] = [pscustomobject]@{ Id = $id; Result = $script:ActResult }
+        if ($script:ActResult -like 'skipped:*') {
+            $skipped += [pscustomobject]@{ Dest = $dest; Reason = $script:ActResult.Substring(8) }
+        } else { $anyOk = $true }
     }
     Install-Command $ids
-    if (-not $script:Dry) {
+    if ((-not $script:Dry) -and $anyOk) {
         Set-State 'version' (Get-AdrStdVersion)
         Set-State 'mode' $(if ($script:Link) { 'link' } else { 'copy' })
         Write-Host 'Pronto. Abra uma nova sessão do agente para carregar a skill.'
+    }
+    if ($skipped.Count -gt 0) {
+        Write-Host 'Destinos pulados (nada foi alterado neles):'
+        foreach ($sk in $skipped) {
+            $why = switch ($sk.Reason) {
+                'sem-terminal' { 'é um adr-std não instalado por este comando e foi mantido (use --adopt para adotar com backup)' }
+                'outra-skill' { 'existe e não foi instalada pelo adr-std' }
+                'recusado' { 'a adoção foi recusada' }
+                'backup-falhou' { 'não foi possível guardar a pasta existente' }
+                'falha-na-instalacao' { 'não foi possível gravar a skill' }
+                default { '' }
+            }
+            Write-Host ("  ! {0}: {1}{2}" -f $sk.Dest, $sk.Reason, $(if ($why) { "; $why" } else { '' }))
+        }
+        exit 4
     }
 }
 
@@ -384,9 +627,10 @@ function Invoke-Status {
     }
     Write-Host ("adr-std: skill instalada na versão {0} (comando {1}); modo {2}" -f $ver, (Get-AdrStdVersion), (Get-State 'mode'))
     foreach ($e in Get-StateAgent) {
-        $ok = (Test-Path (Join-Path $e.Dest 'SKILL.md'))
+        $ok = (Test-Path (Join-Path $e.Dest 'SKILL.md')) -or (Test-ReparsePoint (Get-Item -LiteralPath $e.Dest -Force -ErrorAction SilentlyContinue))
         $note = if ($ok) { 'íntegra' } else { 'danificada (pasta ausente ou incompleta)' }
-        Write-Host ("  {0,-15} {1}  [{2}]" -f $e.Id, $e.Dest, $note)
+        $mode = Get-StateAgentMode $e.Id
+        Write-Host ("  {0,-15} {1}  [{2}{3}]" -f $e.Id, $e.Dest, $note, $(if ($mode) { ", $mode" } else { '' }))
     }
 }
 
@@ -444,6 +688,18 @@ function Invoke-Update([string[]]$Tokens) {
     $installer = Join-Path $DataDir 'install.ps1'
     if (-not (Test-Path $installer)) { $installer = Join-Path $Src 'install.ps1' }
     if (-not (Test-Path $installer)) { Stop-AdrStd 1 'instalador não encontrado; reinstale o adr-std' }
+    # D-10: destino em modo link já segue o repositório; trocar pela release o converteria em cópia
+    if (-not $script:Link) {
+        $keep = @()
+        foreach ($id in $ids) {
+            # só agentes já registrados: o fallback para o `mode` global vale para linhas antigas, não para agentes novos
+            $e = Get-StateAgent | Where-Object { $_.Id -eq $id } | Select-Object -First 1
+            if ($e -and (Get-StateAgentMode $id) -eq 'link') {
+                Write-Host "  • ${id}: $($e.Dest) já segue o repositório (modo link); não foi atualizado pela release"
+            } else { $keep += $id }
+        }
+        $ids = @($keep)
+    }
     if ($script:Dry) {
         $v = if ($script:ReqVersion) { $script:ReqVersion } else { 'para a última versão' }
         Write-Host ("  (simulação) atualizaria {0} nos agentes: {1}" -f $v, ($ids -join ' ')); return
@@ -453,11 +709,15 @@ function Invoke-Update([string[]]$Tokens) {
     if ($script:ReqVersion) { $opts += @('--version', $script:ReqVersion) }
     if ($script:Link) { $opts += '--link' }
     $ps = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
-    & $ps -NoProfile -ExecutionPolicy Bypass -File $installer @opts --agent @ids
-    $rc = $LASTEXITCODE
-    if ($rc -ne 0) { exit $rc }
+    $rc = 0
+    if ($ids.Count -gt 0) {
+        & $ps -NoProfile -ExecutionPolicy Bypass -File $installer @opts --agent @ids
+        $rc = $LASTEXITCODE
+    }
+    # D-17: o código 4 do instalador é aviso (houve pulo); a migração dos ADRs roda mesmo assim
+    if ($rc -ne 0 -and $rc -ne 4) { exit $rc }
     if (-not $script:NoMigrate) { Invoke-MaybeMigrate }
-    exit 0
+    exit $rc
 }
 
 # Roda migrate_numbering.py no diretório atual e devolve a saída e o código (nunca encerra o comando).
@@ -720,7 +980,9 @@ Comandos:
       --agent a b        Agentes (separados por espaço ou vírgula); também aceita os nomes direto
       --all              Todos os agentes encontrados
       --link             Junção para a fonte em vez de cópia (desenvolvimento)
-      --dry-run          Mostra o que faria, sem alterar nada
+      --adopt            Adota, com backup e sem perguntar, um adr-std já existente que não foi instalado por este comando
+      --dry-run          Mostra o que faria em cada pasta, sem alterar nada
+                         (pasta pulada por conflito: o resumo final lista o motivo e o comando sai com código 4)
       --version vX.Y.Z   Versão específica
   update                 Atualiza nos agentes já registrados (--agent inclui mais agentes)
       --no-migrate       Não calcula nem mostra o plano de migração dos ADRs (por omissão o update mostra o plano
