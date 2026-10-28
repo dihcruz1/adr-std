@@ -65,7 +65,7 @@ cmd_install
 
 - Nova opção `--adopt`; `--dry-run` passa a imprimir `<pasta>: <classe> -> <ação>` por destino, sem nunca perguntar: `foreign-adr-std` aparece como `perguntaria` (com terminal), `adotaria` (com `--adopt`) ou `pularia` (sem terminal e sem `--adopt`).
 - Cada destino resulta em `installed`, `updated`, `adopted-in-place`, `adopted-with-backup` ou `skipped:<motivo>`.
-- Motivos de pulo: `sem-terminal` (com a dica `--adopt`), `recusado`, `outra-skill`, `backup-falhou` (nada é instalado por cima).
+- Motivos de pulo: `sem-terminal` (com a dica `--adopt`), `recusado`, `outra-skill`, `backup-falhou` (nada é instalado por cima), `falha-na-instalacao` (a cópia ou o link falhou; o laço segue nos demais destinos).
 - Resumo final: uma linha por destino pulado; código 4 se houver pelo menos um pulo, senão 0. Nunca há `return` no meio do laço por causa de conflito.
 - `install_commands` roda mesmo com pulo de skill (RF-09).
 

@@ -189,6 +189,13 @@ Exemplos: Claude Code → `~/.claude/skills/adr-std/`; Codex → `~/.codex/skill
 Zed e Warp → `~/.agents/skills/adr-std/`. No Windows, o mesmo caminho a partir de `%USERPROFILE%`.
 **Atualizar:** apague a pasta `adr-std` e copie a nova. **Remover:** apague a pasta `adr-std`.
 
+**Instalar depois pelo instalador:** a pasta `adr-std` que você já tem (cópia manual ou link para o repositório) é
+reconhecida, não recusada. Um **link** que já aponta para a pasta `skill/` do repositório é registrado sem alteração
+(continua link, sem backup). Uma **cópia** ou link de um `adr-std` que o comando não instalou pede a sua confirmação
+`[s/N]` (padrão: não); ao confirmar, a pasta antiga é movida para `adr-std.bak-<AAAA-MM-DD>` no mesmo diretório e a
+nova versão é instalada. Sem terminal, use `--adopt` para adotar sem perguntar. Uma pasta `adr-std` de **outra skill**
+nunca é tocada. O backup não é apagado pelo comando: remova-o à mão quando não precisar mais.
+
 ### 6.5 Requisitos
 
 | Forma | Precisa de |
@@ -252,8 +259,10 @@ adr-std install --all                    # todos os encontrados
 | `adr-std install [agentes...]` | Instala a skill. Sem agentes, mostra um menu |
 | `adr-std install --all` | Instala em todos os agentes encontrados |
 | `adr-std install --link` | Cria links para a pasta `skill/` do repositório, em vez de copiar (para quem desenvolve a skill) |
-| `adr-std install --dry-run` | Mostra o que faria, sem alterar nada |
+| `adr-std install --adopt` | Adota, com backup e sem perguntar, um `adr-std` existente que o comando não instalou (nunca vale para pasta de outra skill) |
+| `adr-std install --dry-run` | Mostra, por pasta, a classe e a ação (`<pasta>: <classe> -> <ação>`), sem alterar nada nem ler o terminal |
 | `adr-std update` | Baixa a última versão, confere o checksum e reinstala nos agentes já registrados; depois mostra o plano de migração dos ADRs do diretório atual e só aplica com a sua confirmação em terminal (sem terminal, imprime `adr-std migrate --apply`) |
+| `adr-std update` (destinos em modo `link`) | Não substitui pastas que são links para o repositório, que já seguem o que você desenvolve; informa quais foram puladas |
 | `adr-std update --no-migrate` | Atualiza sem calcular nem mostrar o plano de migração (`--dry-run` também não migra) |
 | `adr-std update --version v1.0.0` | Instala uma versão específica |
 | `adr-std update --agent gemini-cli` | Atualiza e inclui mais um agente |
@@ -333,7 +342,8 @@ apaga a pasta `adr-std` do agente e copia a nova.
 |---|---|---|
 | `adr-std: comando não encontrado` | `~/.local/bin` fora do PATH | Abra um novo terminal; se persistir, acrescente `export PATH="$HOME/.local/bin:$PATH"` ao seu shell |
 | O agente não usa a skill | Sessão aberta antes da instalação, ou pasta errada | Abra uma sessão nova; confira com `adr-std status` e a tabela da seção 7 |
-| `já existe e não foi instalada pelo adr-std` | Há uma pasta `adr-std` sua no destino | Renomeie ou remova a pasta e instale de novo |
+| `Destinos pulados` e código de saída 4 | Alguma pasta foi pulada (outra skill, adoção recusada ou sem terminal, falha no backup ou na gravação); as demais foram instaladas | Leia o motivo de cada pasta no resumo. `sem-terminal`: rode de novo com `--adopt` ou em um terminal. `outra-skill`: renomeie ou remova a pasta e instale de novo |
+| `adr-std.bak-<data>` ao lado da pasta de skills | Backup criado na adoção | Confira o conteúdo e apague quando não precisar; o comando nunca o remove |
 | `o checksum do pacote não confere` | Download corrompido ou pacote alterado | Não instale; tente de novo e, se repetir, avise o mantenedor |
 | `o comando check precisa de Python 3` | Python ausente | Instale o Python 3 ou use `skill/references/checklist.md` à mão |
 | `sem terminal para o menu` | Execução sem terminal (script, `curl \| bash` sem tty) | Indique `--agent` ou `--all` |
