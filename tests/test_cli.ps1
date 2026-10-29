@@ -12,10 +12,35 @@ BeforeAll {
     $script:Ps = if (Get-Command pwsh -ErrorAction SilentlyContinue) { 'pwsh' } else { 'powershell' }
 
     function Invoke-Cli {
-        param([string[]]$CliArgs, [string]$Answer = $null)
+        param([string[]]$CliArgs, [object]$Answer = $null)
+        # [string] com $null vira ''; no Windows variável de ambiente vazia não existe, então resposta vazia usa ' '.
         if ($null -ne $Answer) { $env:ADR_STD_ANSWER = $Answer } else { Remove-Item Env:ADR_STD_ANSWER -ErrorAction SilentlyContinue }
-        $out = & $script:Ps -NoProfile -ExecutionPolicy Bypass -File $script:Cli @CliArgs 2>&1 | Out-String
+        # stdin redirecionado: sem terminal de verdade, o prompt nunca trava um console interativo.
+        $out = $null | & $script:Ps -NoProfile -ExecutionPolicy Bypass -File $script:Cli @CliArgs 2>&1 | Out-String
         [pscustomobject]@{ Output = $out; Code = $LASTEXITCODE }
+    }
+
+    # Link para pasta: junção no Windows, link simbólico nos demais sistemas (a cadeia funciona nos dois).
+    function New-TestLink {
+        param([string]$Path, [string]$Target)
+        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $Path) | Out-Null
+        $type = if ($env:OS -eq 'Windows_NT') { 'Junction' } else { 'SymbolicLink' }
+        New-Item -ItemType $type -Path $Path -Target $Target | Out-Null
+    }
+
+    function New-TestSkillDir {
+        param([string]$Dir, [string]$Name)
+        New-Item -ItemType Directory -Force -Path $Dir | Out-Null
+        Set-Content -Path (Join-Path $Dir 'SKILL.md') -Value "---`nname: $Name`n---`ncorpo"
+    }
+
+    function Get-TreeSnapshot {
+        $items = Get-ChildItem -LiteralPath $script:HomeDir -Recurse -Force -ErrorAction SilentlyContinue | ForEach-Object {
+            # Pasta: sem data. No NTFS a data da pasta é atualizada de forma preguiçosa e muda só por leitura.
+            "{0}|{1}|{2}" -f $_.FullName, $(if ($_.PSIsContainer) { 'd' } else { $_.Length }), $(if ($_.PSIsContainer) { 0 } else { $_.LastWriteTimeUtc.Ticks })
+        }
+        $st = if (Test-Path $script:State) { Get-Content -Raw $script:State } else { '' }
+        (($items | Sort-Object) -join "`n") + "`n--`n" + $st
     }
 
     function Invoke-Installer {
@@ -38,7 +63,7 @@ BeforeEach {
 }
 
 AfterEach {
-    Remove-Item Env:ADR_STD_HOME, Env:ADR_STD_LOCALAPPDATA, Env:ADR_STD_APPDATA, Env:ADR_STD_NO_PATH, Env:ADR_STD_ANSWER -ErrorAction SilentlyContinue
+    Remove-Item Env:ADR_STD_HOME, Env:ADR_STD_LOCALAPPDATA, Env:ADR_STD_APPDATA, Env:ADR_STD_NO_PATH, Env:ADR_STD_ANSWER, Env:ADR_STD_TODAY -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $Tmp
 }
 
@@ -145,6 +170,215 @@ Describe 'install' {
         (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
         Test-Path (Join-Path $HomeDir '.claude/skills/adr-std/residuo.txt') | Should -BeFalse
         @(Get-Content $State | Where-Object { $_ -match "^agent`tclaude-code`t" }).Count | Should -Be 1
+    }
+}
+
+Describe 'adoção automática de pastas existentes' {
+    It 'install registra o modo por agente e status o mostra' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
+        (Get-Content $State) -match "^agent`tclaude-code`t.*`tcopy$" | Should -Not -BeNullOrEmpty
+        $line = (Invoke-Cli @('status')).Output -split "`n" | Where-Object { $_ -match 'claude-code' }
+        $line | Should -Match 'íntegra, copy'
+    }
+    It 'estado antigo de 3 colunas usa o modo global no status' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        Invoke-Cli @('install', 'claude-code') | Out-Null
+        $lines = Get-Content $State | ForEach-Object { if ($_ -match "^agent`t") { ($_ -split "`t")[0..2] -join "`t" } else { $_ } }
+        Set-Content -Path $State -Value $lines
+        ((Invoke-Cli @('status')).Output -split "`n" | Where-Object { $_ -match 'claude-code' }) | Should -Match 'íntegra, copy'
+    }
+    It 'link para o repositório (direto e encadeado) é registrado sem alterar nem criar backup' {
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        $mid = Join-Path $Tmp 'mid'
+        New-TestLink $mid (Join-Path $Root 'skill')
+        New-TestLink $dest $mid
+        $r = Invoke-Cli @('install', 'claude-code')
+        $r.Code | Should -Be 0
+        (Get-Item -LiteralPath $dest -Force).Attributes -band [IO.FileAttributes]::ReparsePoint | Should -Not -Be 0
+        (Get-Content -Raw (Join-Path $dest 'SKILL.md')) | Should -Be (Get-Content -Raw (Join-Path $Root 'skill/SKILL.md'))
+        @(Get-ChildItem -LiteralPath (Join-Path $HomeDir '.claude/skills') -Force | Where-Object { $_.Name -like '*.bak-*' }).Count | Should -Be 0
+        (Get-Content $State) -match "^agent`tclaude-code`t.*`tlink$" | Should -Not -BeNullOrEmpty
+    }
+    It 'outra skill no destino é pulada (código 4) e os demais agentes seguem' {
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestSkillDir $dest 'outra-skill'
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.codex') | Out-Null
+        $r = Invoke-Cli @('install', 'claude-code', 'codex')
+        $r.Code | Should -Be 4
+        $r.Output | Should -Match 'outra-skill'
+        (Get-Content -Raw (Join-Path $dest 'SKILL.md')) | Should -Match 'outra-skill'
+        Test-Path (Join-Path $HomeDir '.codex/skills/adr-std/SKILL.md') | Should -BeTrue
+        (Get-Content $State) -match "^agent`tclaude-code`t" | Should -BeNullOrEmpty
+    }
+    It 'adr-std alheio: resposta s adota com backup' {
+        $env:ADR_STD_TODAY = '2026-10-27'
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestSkillDir $dest 'adr-std'
+        Set-Content -Path (Join-Path $dest 'extra.txt') -Value 'original'
+        $r = Invoke-Cli @('install', 'claude-code') -Answer 's'
+        $r.Code | Should -Be 0
+        (Get-Content (Join-Path $HomeDir '.claude/skills/adr-std.bak-2026-10-27/extra.txt')) | Should -Be 'original'
+        Test-Path (Join-Path $dest '.installed-by-adr-std') | Should -BeTrue
+        (Get-Content $State) -match "^agent`tclaude-code`t" | Should -Not -BeNullOrEmpty
+    }
+    It 'adr-std alheio: resposta n, vazia ou lixo recusa sem backup e sem rastro' {
+        $env:ADR_STD_TODAY = '2026-10-27'
+        foreach ($answer in 'n', ' ', 'xyz') {
+            $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+            Remove-Item -Recurse -Force -ErrorAction SilentlyContinue $dest, (Join-Path $HomeDir '.claude/skills/adr-std.bak-2026-10-27'), (Join-Path $Tmp 'roam/adr-std')
+            New-TestSkillDir $dest 'adr-std'
+            Set-Content -Path (Join-Path $dest 'extra.txt') -Value 'original'
+            $r = Invoke-Cli @('install', 'claude-code') -Answer $answer
+            $r.Code | Should -Be 4
+            $r.Output | Should -Match 'recusado'
+            (Get-Content (Join-Path $dest 'extra.txt')) | Should -Be 'original'
+            Test-Path (Join-Path $HomeDir '.claude/skills/adr-std.bak-2026-10-27') | Should -BeFalse
+            # Os comandos /adr-std-* ainda são instalados (RF-09); só não pode haver linha de agente.
+            if (Test-Path $State) { @(Get-Content $State | Where-Object { $_ -match '^agent' }).Count | Should -Be 0 }
+        }
+    }
+    It 'sem terminal e sem --adopt pula com a dica de --adopt' {
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestSkillDir $dest 'adr-std'
+        Remove-Item Env:ADR_STD_ANSWER -ErrorAction SilentlyContinue
+        $r = Invoke-Cli @('install', 'claude-code')
+        $r.Code | Should -Be 4
+        $r.Output | Should -Match 'sem-terminal'
+        $r.Output | Should -Match '--adopt'
+        Test-Path (Join-Path $dest '.installed-by-adr-std') | Should -BeFalse
+    }
+    It '--adopt adota com backup sem perguntar, mas nunca vale para outra skill' {
+        $env:ADR_STD_TODAY = '2026-10-27'
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestSkillDir $dest 'adr-std'
+        Set-Content -Path (Join-Path $dest 'extra.txt') -Value 'original'
+        New-TestSkillDir (Join-Path $HomeDir '.codex/skills/adr-std') 'outra-skill'
+        $r = Invoke-Cli @('install', 'claude-code', 'codex', '--adopt')
+        $r.Code | Should -Be 4
+        $r.Output | Should -Not -Match 'Adotar\?'
+        (Get-Content (Join-Path $HomeDir '.claude/skills/adr-std.bak-2026-10-27/extra.txt')) | Should -Be 'original'
+        Test-Path (Join-Path $dest '.installed-by-adr-std') | Should -BeTrue
+        (Get-Content -Raw (Join-Path $HomeDir '.codex/skills/adr-std/SKILL.md')) | Should -Match 'outra-skill'
+        @(Get-ChildItem -LiteralPath (Join-Path $HomeDir '.codex/skills') -Force | Where-Object { $_.Name -like '*.bak-*' }).Count | Should -Be 0
+    }
+    It 'link atrás de pasta-pai que também é link continua repo-link (caminho físico, SEG-01)' {
+        $alias = Join-Path $Tmp 'alias'
+        New-TestLink $alias $Root
+        New-TestLink (Join-Path $HomeDir '.claude/skills/adr-std') (Join-Path $alias 'skill')
+        $r = Invoke-Cli @('install', 'claude-code', '--dry-run')
+        $r.Code | Should -Be 0
+        ($r.Output -split "`n" | Where-Object { $_ -match 'claude' -and $_ -match '->' }) | Should -Match 'repo-link -> registraria sem alterar'
+    }
+    It 'ciclo de links no destino é foreign-other e é pulado' {
+        $a = Join-Path $Tmp 'ca'; $b = Join-Path $Tmp 'cb'
+        try {
+            New-TestLink $a (Join-Path $Root 'skill')
+            New-TestLink $b $a
+            (Get-Item -LiteralPath $a -Force).Delete()
+            New-TestLink $a $b
+            New-TestLink (Join-Path $HomeDir '.claude/skills/adr-std') $a
+        } catch { Set-ItResult -Skipped -Because "não foi possível criar o ciclo de links: $($_.Exception.Message)"; return }
+        $r = Invoke-Cli @('install', 'claude-code', '--dry-run')
+        $r.Code | Should -Be 0
+        ($r.Output -split "`n" | Where-Object { $_ -match 'claude' -and $_ -match '->' }) | Should -Match 'foreign-other -> pularia'
+    }
+    It 'cadeia de 10 links resolve e de 11 links falha (SEG-02)' {
+        New-TestLink (Join-Path $Tmp 'n1') (Join-Path $Root 'skill')
+        foreach ($i in 2..10) { New-TestLink (Join-Path $Tmp "n$i") (Join-Path $Tmp "n$($i - 1)") }
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestLink $dest (Join-Path $Tmp 'n9')
+        $line = { ((Invoke-Cli @('install', 'claude-code', '--dry-run')).Output -split "`n" | Where-Object { $_ -match 'claude' -and $_ -match '->' }) }
+        (& $line) | Should -Match 'repo-link'
+        (Get-Item -LiteralPath $dest -Force).Delete()
+        New-TestLink $dest (Join-Path $Tmp 'n10')
+        (& $line) | Should -Match 'foreign-other'
+    }
+    It 'backup usa o sufixo -2 e -3 quando o nome do dia já existe' {
+        $env:ADR_STD_TODAY = '2026-10-27'
+        $skills = Join-Path $HomeDir '.claude/skills'
+        New-Item -ItemType Directory -Force -Path (Join-Path $skills 'adr-std.bak-2026-10-27') | Out-Null
+        $dest = Join-Path $skills 'adr-std'
+        New-TestSkillDir $dest 'adr-std'
+        Set-Content -Path (Join-Path $dest 'extra.txt') -Value 'primeiro'
+        (Invoke-Cli @('install', 'claude-code', '--adopt')).Code | Should -Be 0
+        (Get-Content (Join-Path $skills 'adr-std.bak-2026-10-27-2/extra.txt')) | Should -Be 'primeiro'
+        Remove-Item -Recurse -Force $dest
+        New-TestSkillDir $dest 'adr-std'
+        Set-Content -Path (Join-Path $dest 'extra.txt') -Value 'segundo'
+        (Invoke-Cli @('install', 'claude-code', '--adopt')).Code | Should -Be 0
+        (Get-Content (Join-Path $skills 'adr-std.bak-2026-10-27-3/extra.txt')) | Should -Be 'segundo'
+    }
+    It 'backup de link para outro clone move o link e não toca no alvo' {
+        $env:ADR_STD_TODAY = '2026-10-27'
+        $other = Join-Path $Tmp 'outro-clone/skill'
+        New-TestSkillDir $other 'adr-std'
+        Set-Content -Path (Join-Path $other 'extra.txt') -Value 'alvo'
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestLink $dest $other
+        (Invoke-Cli @('install', 'claude-code', '--adopt')).Code | Should -Be 0
+        $bak = Join-Path $HomeDir '.claude/skills/adr-std.bak-2026-10-27'
+        (Get-Item -LiteralPath $bak -Force).LinkType | Should -BeIn 'Junction', 'SymbolicLink'
+        (Get-Content (Join-Path $other 'extra.txt')) | Should -Be 'alvo'
+        Test-Path (Join-Path $dest '.installed-by-adr-std') | Should -BeTrue
+        (Get-Item -LiteralPath $dest -Force).LinkType | Should -BeNullOrEmpty
+    }
+    It 'pasta compartilhada por dois agentes aparece uma vez só (RF-12)' {
+        $r = Invoke-Cli @('install', 'gemini-cli', 'opencode', '--dry-run')
+        $r.Code | Should -Be 0
+        @($r.Output -split "`n" | Where-Object { $_ -match '\.agents' -and $_ -match '->' }).Count | Should -Be 1
+    }
+    It 'segunda instalação de link adotado mantém o modo link sem --link (D-16)' {
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestLink $dest (Join-Path $Root 'skill')
+        (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
+        (Invoke-Cli @('install', 'claude-code')).Code | Should -Be 0
+        (Get-Item -LiteralPath $dest -Force).LinkType | Should -BeIn 'Junction', 'SymbolicLink'
+        (Get-Content $State) -match "^agent`tclaude-code`t.*`tlink$" | Should -Not -BeNullOrEmpty
+        @(Get-ChildItem -LiteralPath (Join-Path $HomeDir '.claude/skills') -Force | Where-Object { $_.Name -like '*.bak-*' }).Count | Should -Be 0
+    }
+    It 'dry-run mostra classe e ação por destino sem alterar arquivos nem estado' {
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.claude') | Out-Null
+        Invoke-Cli @('install', 'claude-code') | Out-Null
+        New-TestLink (Join-Path $HomeDir '.codex/skills/adr-std') (Join-Path $Root 'skill')
+        New-TestSkillDir (Join-Path $HomeDir '.cursor/skills/adr-std') 'adr-std'
+        New-TestSkillDir (Join-Path $HomeDir '.roo/skills/adr-std') 'outra-skill'
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.codeium/windsurf') | Out-Null
+        $before = Get-TreeSnapshot
+        $r = Invoke-Cli @('install', 'claude-code', 'codex', 'cursor', 'roo', 'windsurf', '--dry-run') -Answer 'x'
+        $after = Get-TreeSnapshot
+        $r.Code | Should -Be 0
+        $after | Should -Be $before
+        $lines = $r.Output -split "`n"
+        # só a linha de classe: as linhas de comando também têm 'claude' no caminho
+        ($lines | Where-Object { $_ -match 'claude' -and $_ -match '->' }) | Should -Match 'ours -> atualizaria'
+        ($lines | Where-Object { $_ -match 'codex' }) | Should -Match 'repo-link -> registraria sem alterar'
+        ($lines | Where-Object { $_ -match 'cursor' }) | Should -Match 'foreign-adr-std -> perguntaria'
+        ($lines | Where-Object { $_ -match '\.roo' }) | Should -Match 'foreign-other -> pularia'
+        ($lines | Where-Object { $_ -match 'windsurf' }) | Should -Match 'absent -> instalaria'
+        $r.Output | Should -Not -Match 'Adotar\?'
+    }
+    It 'dry-run com --adopt mostra adotaria' {
+        New-TestSkillDir (Join-Path $HomeDir '.cursor/skills/adr-std') 'adr-std'
+        $r = Invoke-Cli @('install', 'cursor', '--dry-run', '--adopt')
+        $r.Output | Should -Match 'foreign-adr-std -> adotaria'
+    }
+    It 'uninstall de link adotado remove o link, mantém o alvo e o backup' {
+        $dest = Join-Path $HomeDir '.claude/skills/adr-std'
+        New-TestLink $dest (Join-Path $Root 'skill')
+        $bak = Join-Path $HomeDir '.claude/skills/adr-std.bak-2026-10-27'
+        New-Item -ItemType Directory -Force -Path $bak | Out-Null
+        Set-Content -Path (Join-Path $bak 'x.txt') -Value 'bak'
+        Invoke-Cli @('install', 'claude-code') | Out-Null
+        (Invoke-Cli @('uninstall', 'claude-code')).Code | Should -Be 0
+        Get-Item -LiteralPath $dest -Force -ErrorAction SilentlyContinue | Should -BeNullOrEmpty
+        Test-Path (Join-Path $Root 'skill/SKILL.md') | Should -BeTrue
+        (Get-Content (Join-Path $bak 'x.txt')) | Should -Be 'bak'
+    }
+    It 'help cita --adopt e o código 4' {
+        $r = Invoke-Cli @('help')
+        $r.Output | Should -Match '--adopt'
+        $r.Output | Should -Match 'código 4'
     }
 }
 
@@ -310,7 +544,7 @@ Describe 'update (v2.0): gancho de migração' {
     $HasPython = [bool](Get-Command python -ErrorAction SilentlyContinue) -or [bool](Get-Command python3 -ErrorAction SilentlyContinue) -or [bool](Get-Command py -ErrorAction SilentlyContinue)
     BeforeAll {
         function Invoke-UpdateIn {
-            param([string[]]$UpdateArgs = @(), [string]$Answer = $null, [string]$WorkDir)
+            param([string[]]$UpdateArgs = @(), [object]$Answer = $null, [string]$WorkDir)
             Push-Location $WorkDir
             try { $r = Invoke-Cli (@('update') + $UpdateArgs) $Answer } finally { Pop-Location }
             $r
@@ -336,6 +570,38 @@ Describe 'update (v2.0): gancho de migração' {
         Test-Path (Join-Path $AdrDir '0001-a.md') | Should -BeTrue
         Test-Path (Join-Path $AdrDir '1-a.md') | Should -BeFalse
     }
+    It 'update não substitui destino em modo link e informa o motivo' -Skip:(-not $HasPython) {
+        $lines = Get-Content $State | ForEach-Object { if ($_ -match "^agent`tclaude-code`t") { (($_ -split "`t")[0..2] -join "`t") + "`tlink" } else { $_ } }
+        Set-Content -Path $State -Value $lines
+        Set-Content -Path $Stub -Value 'Set-Content -Path (Join-Path $env:ADR_STD_HOME "stub-ran") -Value x; exit 0'
+        $r = Invoke-UpdateIn -WorkDir $Proj
+        $r.Code | Should -Be 0
+        $r.Output | Should -Match 'já segue o repositório'
+        Test-Path (Join-Path $HomeDir 'stub-ran') | Should -BeFalse
+        $r.Output | Should -Match 'adr-std migrate --apply'
+    }
+    It 'update --agent de agente não registrado ignora o modo global link' {
+        $lines = (Get-Content $State | Where-Object { $_ -notmatch "^mode`t" }) + "mode`tlink"
+        Set-Content -Path $State -Value $lines
+        New-Item -ItemType Directory -Force -Path (Join-Path $HomeDir '.cursor') | Out-Null
+        Set-Content -Path $Stub -Value 'Set-Content -Path (Join-Path $env:ADR_STD_HOME "stub-ran") -Value x; exit 0'
+        $r = Invoke-UpdateIn -UpdateArgs @('--no-migrate', '--agent', 'cursor') -WorkDir $Proj
+        $r.Code | Should -Be 0
+        Test-Path (Join-Path $HomeDir 'stub-ran') | Should -BeTrue
+        $r.Output | Should -Not -Match 'cursor: .*já segue o repositório'
+    }
+    It 'update com código 4 do instalador ainda migra e devolve 4' -Skip:(-not $HasPython) {
+        Set-Content -Path $Stub -Value 'exit 4'
+        $r = Invoke-UpdateIn -WorkDir $Proj
+        $r.Code | Should -Be 4
+        $r.Output | Should -Match 'adr-std migrate --apply'
+    }
+    It 'update com outro código de erro do instalador continua interrompendo' {
+        Set-Content -Path $Stub -Value 'exit 5'
+        $r = Invoke-UpdateIn -WorkDir $Proj
+        $r.Code | Should -Be 5
+        $r.Output | Should -Not -Match 'plano de migração'
+    }
     It 'com terminal e resposta s aplica a migração' -Skip:(-not $HasPython) {
         $r = Invoke-UpdateIn -WorkDir $Proj -Answer 's'
         $r.Code | Should -Be 0
@@ -345,7 +611,7 @@ Describe 'update (v2.0): gancho de migração' {
         Get-Content -Raw (Join-Path $Proj 'README.md') | Should -Match 'docs/architecture/ADR/1-a.md'
     }
     It 'resposta n, vazia ou outra não aplica' -Skip:(-not $HasPython) {
-        foreach ($a in 'n', '', 'talvez') {
+        foreach ($a in 'n', ' ', 'talvez') {
             $r = Invoke-UpdateIn -WorkDir $Proj -Answer $a
             $r.Code | Should -Be 0
             $r.Output | Should -Match 'Aplicar a migração\? \[s/N\]'

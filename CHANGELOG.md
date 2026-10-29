@@ -5,6 +5,23 @@ Formato baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/); 
 
 ## [Não lançado]
 
+### Adicionado
+- `adr-std install --adopt`: adota, com backup (`adr-std.bak-<AAAA-MM-DD>`) e sem perguntar, um `adr-std` já existente que o comando não instalou. Nunca vale para pasta de outra skill.
+- `adr-std install` reconhece o que já existe em cada pasta de destino (vazia, instalada por ele, link para o repositório, `adr-std` alheio ou outra skill): link para o repositório é registrado sem alterar e sem backup; `adr-std` alheio pede confirmação `[s/N]`; outra skill não é tocada.
+- `adr-std install --dry-run` mostra `<pasta>: <classe> -> <ação>` por destino, sem alterar nada nem ler o terminal.
+- O estado registra o modo (`link` ou `copy`) por agente; `adr-std status` mostra o modo de cada um.
+
+### Alterado
+- Conflito em um destino não interrompe mais a instalação: os demais agentes e os comandos `/adr-std-*` seguem, o resumo lista cada pasta pulada com o motivo e o comando termina com código 4 (0 sem pulos).
+- `adr-std update` não substitui destinos em modo `link` (informa o motivo) e, se o instalador terminar com código 4, ainda executa a migração de ADRs e devolve 4.
+- Falha de `mkdir`, `cp`, `mv` ou `ln` na instalação de um destino deixa de ser silenciosa: o destino é pulado com o motivo `falha-na-instalacao`.
+
+### Corrigido
+- `SKILL.md`: `--ask` fora da faixa (0 ou acima de 10) passa a avisar o ajuste antes da primeira pergunta e a não gravar nada antes das respostas.
+- `SKILL.md`: se `references/` não puder ser lida, o agente para sem gravar e avisa a pasta a liberar.
+- `SKILL.md`: antes de commit o agente pede autorização expressa, mesmo com a decisão no pedido.
+- `SKILL.md`: pedir para padronizar ou migrar a numeração não autoriza renomear; o agente mostra o plano do `adr-std migrate`, para e pergunta.
+
 ## [3.0.0] - 2026-10-22
 
 ### Alterado (quebra de compatibilidade)

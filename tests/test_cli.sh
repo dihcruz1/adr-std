@@ -105,7 +105,7 @@ test_install_dedupe() {
   assert_file "$HOME/.agents/skills/adr-std/SKILL.md" || return 1
   assert_no_file "$HOME/.gemini/skills/adr-std" || return 1
   assert_no_file "$HOME/.config/opencode/skills/adr-std" || return 1
-  local n; n=$(grep -cE '^agent'$'\t''(gemini-cli|opencode)'$'\t'''"$HOME"'/.agents/skills/adr-std$' "$(state_file)")
+  local n; n=$(grep -cE '^agent'$'\t''(gemini-cli|opencode)'$'\t'''"$HOME"'/.agents/skills/adr-std('$'\t''(copy|link))?$' "$(state_file)")
   assert_eq "$n" "2" "agentes registrados na pasta compartilhada"
 }
 
@@ -209,6 +209,29 @@ test_status() {
   rm -rf "$HOME/.codex/skills/adr-std"
   out="$("$CLI" status)"
   printf '%s\n' "$out" | grep -E 'codex' | grep -q 'danificada' || fail "pasta faltando não marcada como danificada"
+}
+
+test_status_mode_per_agent() {
+  mkdir -p "$HOME/.claude" "$HOME/.codex" "$HOME/.continue"
+  "$CLI" install --link claude-code >/dev/null || fail "install --link falhou" || return 1
+  "$CLI" install codex >/dev/null || fail "install copy falhou" || return 1
+  local out; out="$("$CLI" status)"
+  printf '%s\n' "$out" | grep -E 'claude-code' | grep -qF '[íntegra, link]' || fail "claude-code sem [íntegra, link]: $out" || return 1
+  printf '%s\n' "$out" | grep -E 'codex' | grep -qF '[íntegra, copy]' || fail "codex sem [íntegra, copy]: $out" || return 1
+  rm -rf "$HOME/.codex/skills/adr-std"
+  out="$("$CLI" status)"
+  printf '%s\n' "$out" | grep -E 'codex' | grep -qF '[danificada (pasta ausente ou incompleta), copy]' || fail "danificada sem o modo: $out" || return 1
+  printf '%s\n' "$out" | head -1 | grep -q '^adr-std: skill instalada na versão' || fail "cabeçalho mudou: $out"
+}
+
+test_status_mode_old_state_uses_global() {
+  mkdir -p "$HOME/.claude" "$HOME/.config/adr-std"
+  "$CLI" install claude-code >/dev/null || fail "install falhou" || return 1
+  local f; f="$(state_file)"
+  # estado antigo: linha agent de 3 colunas e mode global link
+  awk -F'\t' 'BEGIN{OFS="\t"} $1=="agent"{print $1,$2,$3; next} $1=="mode"{print "mode","link"; next} {print}' "$f" > "$f.new" && mv "$f.new" "$f"
+  local out; out="$("$CLI" status)"
+  printf '%s\n' "$out" | grep -E 'claude-code' | grep -qF '[íntegra, link]' || fail "estado antigo não usou o mode global: $out"
 }
 
 test_install_link() {
@@ -374,7 +397,7 @@ start_server() {
   echo "$ver" > "$src/VERSION"
   ( cd "$src" && bash ./package.sh "$PWD/../site/releases/latest/download" >/dev/null 2>&1 ) || return 1
   local port=$((20000 + RANDOM % 20000))
-  ( cd site && python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 ) &
+  ( cd site && exec python3 -m http.server "$port" --bind 127.0.0.1 >/dev/null 2>&1 ) &
   SERVER_PID=$!
   BASE="http://127.0.0.1:$port"
   local _i; for _i in 1 2 3 4 5 6 7 8 9 10; do curl -fs "$BASE/" >/dev/null 2>&1 && return 0; sleep 0.3; done
@@ -549,6 +572,73 @@ test_update_failed_installer_no_migration() {
   assert_contains "$UOUT" "checksum" || return 1
   printf '%s' "$UOUT" | grep -qE 'plano de migração|migração: nada a fazer|Aplicar a migração' && fail "migrou com o instalador falhando" && return 1
   assert_project_unchanged
+}
+
+# update e uninstall com destinos adotados (RF-11, D-10, D-17).
+test_update_skips_link_mode_destinations() {
+  update_setup || return 1
+  "$HOME/.local/bin/adr-std" install claude-code --link >/dev/null 2>&1 < /dev/null
+  local before; before="$(readlink "$HOME/.claude/skills/adr-std")"
+  [ -n "$before" ] || { stop_server; fail "destino não virou link"; return 1; }
+  run_update; stop_server
+  assert_eq "$UCODE" "0" "$UOUT" || return 1
+  assert_eq "$(readlink "$HOME/.claude/skills/adr-std")" "$before" "link não foi substituído" || return 1
+  assert_contains "$UOUT" "já segue o repositório" || return 1
+  assert_contains "$UOUT" "adr-std migrate --apply" "a migração roda mesmo assim"
+}
+
+test_update_installer_code_4_still_migrates() {
+  update_setup || return 1
+  # a pasta registrada passa a ser de outra skill: o instalador pula o destino e devolve 4
+  rm -rf "$HOME/.claude/skills/adr-std"; mkdir -p "$HOME/.claude/skills/adr-std"
+  printf -- '---\nname: outra\n---\n' > "$HOME/.claude/skills/adr-std/SKILL.md"
+  run_update; stop_server
+  assert_eq "$UCODE" "4" "o update devolve 4 no fim" || return 1
+  assert_contains "$UOUT" "outra-skill" "mostra o resumo" || return 1
+  assert_contains "$UOUT" "adr-std migrate --apply" "executou a migração" || return 1
+  assert_project_unchanged
+}
+
+test_uninstall_adopted_link_keeps_target_and_backup() {
+  mkdir -p "$HOME/.claude/skills"
+  ln -s "$ROOT/skill" "$HOME/.claude/skills/adr-std"
+  mkdir -p "$HOME/.claude/skills/adr-std.bak-2026-10-27"; printf 'bak\n' > "$HOME/.claude/skills/adr-std.bak-2026-10-27/x.txt"
+  "$CLI" install claude-code >/dev/null 2>&1
+  [ -L "$HOME/.claude/skills/adr-std" ] || fail "o link adotado deveria continuar link" || return 1
+  "$CLI" uninstall claude-code >/dev/null 2>&1
+  [ ! -e "$HOME/.claude/skills/adr-std" ] && [ ! -L "$HOME/.claude/skills/adr-std" ] || fail "o link adotado deveria ter sido removido" || return 1
+  assert_file "$ROOT/skill/SKILL.md" || return 1
+  assert_eq "$(cat "$HOME/.claude/skills/adr-std.bak-2026-10-27/x.txt")" "bak" "o backup é mantido"
+}
+
+test_help_lists_adopt() {
+  local out; out="$("$CLI" help)" || fail "help falhou" || return 1
+  assert_contains "$out" "--adopt" || return 1
+  assert_contains "$out" "código 4"
+}
+
+# Achados da revisão independente (4.6).
+test_update_agent_not_registered_ignores_global_link_mode() {
+  update_setup || return 1
+  # estado global em link, mas o cursor nunca foi registrado: não pode ser tratado como destino em modo link
+  { grep -v '^mode	' "$(state_file)"; printf 'mode\tlink\n'; } > state.new && mv state.new "$(state_file)"
+  mkdir -p "$HOME/.cursor"
+  run_update --agent cursor; stop_server
+  if printf '%s' "$UOUT" | grep -qF "cursor: " && printf '%s' "$UOUT" | grep -qF "já segue o repositório"; then fail "agente não registrado tratado como link: $UOUT"; return 1; fi
+  assert_file "$HOME/.cursor/skills/adr-std/SKILL.md"
+}
+
+test_adopt_install_failure_restores_original() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std; printf 'original\n' > skills/adr-std/extra.txt
+  install_to() { return 1; }   # falha depois do backup
+  ADOPT=1
+  ADR_STD_TODAY=2026-10-27 act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >out.txt 2>&1; local rc=$?
+  assert_eq "$rc" "4" || return 1
+  assert_eq "$ACT_RESULT" "skipped:falha-na-instalacao" || return 1
+  assert_eq "$(cat skills/adr-std/extra.txt)" "original" "o original volta ao lugar" || return 1
+  assert_no_file "$PWD/skills/adr-std.bak-2026-10-27" || return 1
+  assert_eq "$(state_agents)" "" "nada registrado"
 }
 
 test_help_lists_update_no_migrate() {
@@ -928,6 +1018,710 @@ test_installer_copies_launch_table() {
   local out="$PWD/out"
   ( cd "$ROOT" && bash ./package.sh "$out" ) >/dev/null 2>&1 || fail "package.sh falhou" || return 1
   unzip -Z1 "$out/adr-std.zip" | grep -qxF agent_launch.tsv || fail "zip sem agent_launch.tsv"
+}
+
+# Gancho de teste: com ADR_STD_LIB definida, `source bin/adr-std` só define as funções e não executa `main`.
+load_lib() {
+  ADR_STD_LIB=1 . "$ROOT/bin/adr-std"
+}
+
+test_lib_hook_loads_without_running() {
+  local out
+  out="$(ADR_STD_LIB=1 bash -c '. "$1"; declare -F classify_dest >/dev/null && declare -F main >/dev/null && echo carregou' _ "$ROOT/bin/adr-std" 2>&1)"
+  assert_eq "$out" "carregou" "com ADR_STD_LIB o script só define funções (sem ajuda, sem erro)" || return 1
+  out="$(bash "$ROOT/bin/adr-std" version 2>&1)"
+  assert_eq "$out" "adr-std $(cat "$ROOT/VERSION")" "sem ADR_STD_LIB a CLI executa normalmente" || return 1
+  bash "$ROOT/bin/adr-std" comando-inexistente >/dev/null 2>&1
+  assert_eq "$?" "2" "código de saída de comando desconhecido preservado"
+}
+
+# resolve_link_chain (D-6, SEG-02): as funções vêm de `source bin/adr-std` com ADR_STD_LIB=1 (load_lib).
+load_resolve_link_chain() {
+  load_lib
+  declare -F resolve_link_chain >/dev/null || fail "resolve_link_chain não definida em bin/adr-std"
+}
+
+test_resolve_link_chain_direct() {
+  load_resolve_link_chain || return 1
+  mkdir -p real && ln -s "$PWD/real" l1
+  local out; out="$(resolve_link_chain "$PWD/l1")" || fail "link direto deveria resolver" || return 1
+  assert_eq "$out" "$PWD/real"
+}
+
+test_resolve_link_chain_nested() {
+  load_resolve_link_chain || return 1
+  mkdir -p real && ln -s "$PWD/real" l1 && ln -s "$PWD/l1" l2 && ln -s "$PWD/l2" l3
+  local out; out="$(resolve_link_chain "$PWD/l2")" || fail "2 níveis deveria resolver" || return 1
+  assert_eq "$out" "$PWD/real" "2 níveis" || return 1
+  out="$(resolve_link_chain "$PWD/l3")" || fail "3 níveis deveria resolver" || return 1
+  assert_eq "$out" "$PWD/real" "3 níveis"
+}
+
+test_resolve_link_chain_relative() {
+  load_resolve_link_chain || return 1
+  mkdir -p real sub && ln -s ../real sub/l1 && ln -s sub/l1 l2
+  local out; out="$(resolve_link_chain "$PWD/l2")" || fail "link relativo deveria resolver" || return 1
+  assert_eq "$out" "$PWD/real"
+}
+
+test_resolve_link_chain_cycle() {
+  load_resolve_link_chain || return 1
+  ln -s "$PWD/b" a && ln -s "$PWD/a" b
+  resolve_link_chain "$PWD/a" >/dev/null 2>&1 && fail "ciclo deveria falhar" && return 1
+  ln -s "$PWD/self" self
+  resolve_link_chain "$PWD/self" >/dev/null 2>&1 && fail "autolink deveria falhar" && return 1
+  return 0
+}
+
+test_resolve_link_chain_limit() {
+  load_resolve_link_chain || return 1
+  mkdir -p real && ln -s "$PWD/real" n1
+  local i
+  for i in 2 3 4 5 6 7 8 9 10 11; do ln -s "$PWD/n$((i - 1))" "n$i"; done
+  local out; out="$(resolve_link_chain "$PWD/n10")" || fail "10 saltos deveria resolver" || return 1
+  assert_eq "$out" "$PWD/real" "10 saltos" || return 1
+  resolve_link_chain "$PWD/n11" >/dev/null 2>&1 && fail "11 saltos deveria falhar" && return 1
+  return 0
+}
+
+test_resolve_link_chain_broken() {
+  load_resolve_link_chain || return 1
+  ln -s "$PWD/ausente" quebrado
+  resolve_link_chain "$PWD/quebrado" >/dev/null 2>&1 && fail "link quebrado deveria falhar" && return 1
+  resolve_link_chain "$PWD/nao-existe" >/dev/null 2>&1 && fail "caminho inexistente deveria falhar" && return 1
+  return 0
+}
+
+# skill_name_of (D-11, SEG-03): lê só o frontmatter do SKILL.md, como texto.
+load_skill_name_of() {
+  load_lib
+  declare -F skill_name_of >/dev/null || fail "skill_name_of não definida em bin/adr-std"
+}
+
+test_skill_name_of_adr_std() {
+  load_skill_name_of || return 1
+  mkdir -p s && printf -- '---\nname: adr-std\ndescription: x\n---\ncorpo\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "adr-std"
+}
+
+test_skill_name_of_other_name() {
+  load_skill_name_of || return 1
+  mkdir -p s && printf -- '---\nname: outra-coisa\n---\ncorpo\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "outra-coisa"
+}
+
+test_skill_name_of_no_frontmatter() {
+  load_skill_name_of || return 1
+  mkdir -p s && printf 'name: adr-std\nsó corpo\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "" "sem bloco --- não há name" || return 1
+  printf -- '---\ndescription: x\n---\nname: adr-std\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "" "name fora do frontmatter é ignorado"
+}
+
+test_skill_name_of_bom_and_crlf() {
+  load_skill_name_of || return 1
+  mkdir -p s
+  printf '\xef\xbb\xbf---\nname: adr-std\n---\ncorpo\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "adr-std" "BOM no início do SKILL.md" || return 1
+  printf -- '---\r\nname: adr-std\r\n---\r\ncorpo\r\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "adr-std" "fim de linha CRLF" || return 1
+  printf '\xef\xbb\xbf---\r\ndescription: x\r\nname: outro\r\n---\r\n' > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "outro" "BOM e CRLF juntos"
+}
+
+test_skill_name_of_no_file() {
+  load_skill_name_of || return 1
+  mkdir -p s
+  assert_eq "$(skill_name_of "$PWD/s")" "" "pasta sem SKILL.md" || return 1
+  assert_eq "$(skill_name_of "$PWD/inexistente")" "" "pasta inexistente"
+}
+
+test_skill_name_of_text_only() {
+  load_skill_name_of || return 1
+  mkdir -p s
+  printf -- '---\nname: $(touch %s/executou) `touch %s/executou2`\n---\n' "$PWD" "$PWD" > s/SKILL.md
+  local out; out="$(skill_name_of "$PWD/s")"
+  assert_no_file "$PWD/executou" || return 1
+  assert_no_file "$PWD/executou2" || return 1
+  assert_contains "$out" '$(touch' || return 1
+  assert_contains "$out" '`touch'
+}
+
+test_skill_name_of_limit_20_lines() {
+  load_skill_name_of || return 1
+  mkdir -p s
+  { printf -- '---\n'; for i in $(seq 1 25); do printf 'campo%s: v\n' "$i"; done; printf 'name: adr-std\n---\n'; } > s/SKILL.md
+  assert_eq "$(skill_name_of "$PWD/s")" "" "name além da 20ª linha é ignorado"
+}
+
+# classify_dest (RF-01 a RF-04, RF-08, D-7): classificação somente leitura de um destino.
+load_classify_dest() {
+  load_lib
+  declare -F classify_dest >/dev/null || fail "classify_dest não definida em bin/adr-std" || return 1
+  MARKER=".installed-by-adr-std"
+  SRC="$PWD/src"; DATA_DIR="$PWD/data"; STATE_FILE="$PWD/state"
+  mkdir -p "$SRC/skill" "$DATA_DIR/skill"
+}
+
+classify_skill_dir() { # pasta nome
+  mkdir -p "$1" && printf -- '---\nname: %s\n---\ncorpo\n' "$2" > "$1/SKILL.md"
+}
+
+# owned_by_us (D-8): propriedade pela cadeia de links resolvida, não pelo readlink exato.
+load_owned_by_us() {
+  load_classify_dest || return 1
+  declare -F owned_by_us >/dev/null || fail "owned_by_us não definida em bin/adr-std"
+}
+
+test_owned_by_us_chained_link() {
+  load_owned_by_us || return 1
+  ln -s "$SRC/skill" direto && ln -s "$PWD/direto" meio && ln -s "$PWD/meio" encadeado
+  printf 'agent\tclaude-code\t%s\nagent\tcodex\t%s\n' "$PWD/direto" "$PWD/encadeado" > "$STATE_FILE"
+  owned_by_us "$PWD/direto" || fail "link direto registrado deveria ser nosso" || return 1
+  owned_by_us "$PWD/encadeado" || fail "link encadeado registrado deveria ser nosso"
+}
+
+# act_on_dest (RF-01 a RF-03, RF-08, D-16): ação por classe; o resultado fica em ACT_RESULT.
+load_act_on_dest() {
+  load_classify_dest || return 1
+  declare -F act_on_dest >/dev/null || fail "act_on_dest não definida em bin/adr-std" || return 1
+  CONFIG_DIR="$PWD/cfg"; LINK=0
+  printf 'skill\n' > "$SRC/skill/SKILL.md"
+}
+
+test_act_on_dest_absent_installs() {
+  load_act_on_dest || return 1
+  act_on_dest claude-code absent "$PWD/skills/adr-std" >/dev/null; local rc=$?
+  assert_eq "$rc" "0" "absent instala" || return 1
+  assert_eq "$ACT_RESULT" "installed" || return 1
+  assert_file "$PWD/skills/adr-std/$MARKER" || return 1
+  assert_eq "$(state_agent_mode claude-code)" "copy" "registra o modo copy"
+}
+
+test_act_on_dest_ours_copy_updates() {
+  load_act_on_dest || return 1
+  act_on_dest claude-code absent "$PWD/skills/adr-std" >/dev/null
+  printf 'novo\n' > "$SRC/skill/SKILL.md"
+  act_on_dest claude-code ours "$PWD/skills/adr-std" >/dev/null; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_eq "$ACT_RESULT" "updated" || return 1
+  [ ! -L "$PWD/skills/adr-std" ] || fail "cópia deveria continuar cópia" || return 1
+  assert_eq "$(cat "$PWD/skills/adr-std/SKILL.md")" "novo" "conteúdo atualizado"
+}
+
+test_act_on_dest_ours_link_stays_link() {
+  load_act_on_dest || return 1
+  mkdir -p skills && ln -s "$SRC/skill" skills/adr-std
+  state_add_agent claude-code "$PWD/skills/adr-std" link
+  act_on_dest claude-code ours "$PWD/skills/adr-std" >/dev/null; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_eq "$ACT_RESULT" "updated" || return 1
+  [ -L "$PWD/skills/adr-std" ] || fail "link sem --link deveria continuar link (D-16)" || return 1
+  assert_eq "$(readlink "$PWD/skills/adr-std")" "$SRC/skill" "aponta para a fonte" || return 1
+  assert_eq "$(state_agent_mode claude-code)" "link"
+}
+
+test_act_on_dest_explicit_link_converts_copy() {
+  load_act_on_dest || return 1
+  act_on_dest claude-code absent "$PWD/skills/adr-std" >/dev/null
+  LINK=1
+  act_on_dest claude-code ours "$PWD/skills/adr-std" >/dev/null
+  [ -L "$PWD/skills/adr-std" ] || fail "--link explícito converte cópia em link" || return 1
+  assert_eq "$(state_agent_mode claude-code)" "link"
+}
+
+test_act_on_dest_repo_link_adopted_in_place() {
+  load_act_on_dest || return 1
+  ln -s "$SRC/skill" direto && mkdir -p skills && ln -s "$PWD/direto" skills/adr-std
+  local before; before="$(readlink "$PWD/skills/adr-std")"
+  act_on_dest claude-code repo-link "$PWD/skills/adr-std" >/dev/null; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_eq "$ACT_RESULT" "adopted-in-place" || return 1
+  assert_eq "$(readlink "$PWD/skills/adr-std")" "$before" "link intacto" || return 1
+  assert_eq "$(ls skills | grep -c bak)" "0" "sem backup" || return 1
+  assert_eq "$(state_agent_mode claude-code)" "link" "registrado como link" || return 1
+  assert_eq "$(state_agents | cut -f2)" "$PWD/skills/adr-std" "registrado no estado"
+}
+
+test_act_on_dest_foreign_other_untouched() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std outra-skill
+  act_on_dest claude-code foreign-other "$PWD/skills/adr-std" >/dev/null; local rc=$?
+  assert_eq "$rc" "4" "pulo devolve 4" || return 1
+  assert_eq "$ACT_RESULT" "skipped:outra-skill" || return 1
+  assert_eq "$(skill_name_of "$PWD/skills/adr-std")" "outra-skill" "intacta" || return 1
+  assert_eq "$(state_agents)" "" "não registra"
+}
+
+test_act_on_dest_foreign_adr_std_without_terminal() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std
+  ADR_STD_TTY=/nao/existe act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >/dev/null; local rc=$?
+  assert_eq "$rc" "4" || return 1
+  assert_eq "$ACT_RESULT" "skipped:sem-terminal" || return 1
+  assert_eq "$(skill_name_of "$PWD/skills/adr-std")" "adr-std" "intacta" || return 1
+  assert_eq "$(state_agents)" "" "não registra"
+}
+
+# Adoção interativa de foreign-adr-std (RF-04, RF-05): confirmação [s/N], backup e instalação.
+test_adopt_confirmed_copy_makes_backup_and_installs() {
+  load_act_on_dest || return 1
+  local answer
+  for answer in s S; do
+    rm -rf skills cfg state; classify_skill_dir skills/adr-std adr-std; printf 'original\n' > skills/adr-std/extra.txt
+    printf '%s\n' "$answer" > answer
+    ADR_STD_TODAY=2026-10-27 ADR_STD_TTY="$PWD/answer" act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >out.txt 2>&1; local rc=$?
+    assert_eq "$rc" "0" "resposta '$answer' confirma" || return 1
+    assert_eq "$ACT_RESULT" "adopted-with-backup" || return 1
+    assert_eq "$(cat skills/adr-std.bak-2026-10-27/extra.txt)" "original" "backup com o conteúdo original" || return 1
+    assert_file "$PWD/skills/adr-std/$MARKER" || return 1
+    assert_eq "$(state_agent_mode claude-code)" "copy" "registrado como copy" || return 1
+    assert_contains "$(cat out.txt)" "adr-std.bak-2026-10-27" || return 1
+    assert_contains "$(cat out.txt)" "[s/N]" || return 1
+  done
+}
+
+test_adopt_refused_leaves_no_trace() {
+  load_act_on_dest || return 1
+  local answer
+  for answer in "" n N xyz "sim"; do
+    rm -rf skills cfg state; classify_skill_dir skills/adr-std adr-std; printf 'original\n' > skills/adr-std/extra.txt
+    printf '%s\n' "$answer" > answer
+    ADR_STD_TODAY=2026-10-27 ADR_STD_TTY="$PWD/answer" act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >/dev/null 2>&1; local rc=$?
+    assert_eq "$rc" "4" "resposta '$answer' recusa" || return 1
+    assert_eq "$ACT_RESULT" "skipped:recusado" || return 1
+    assert_eq "$(cat skills/adr-std/extra.txt)" "original" "pasta intacta" || return 1
+    assert_no_file "$PWD/skills/adr-std.bak-2026-10-27" || return 1
+    assert_no_file "$PWD/skills/adr-std/$MARKER" || return 1
+    assert_eq "$(state_agents)" "" "nada registrado" || return 1
+  done
+}
+
+test_adopt_foreign_link_backs_up_link_not_target() {
+  load_act_on_dest || return 1
+  classify_skill_dir fora adr-std; printf 'alvo\n' > fora/extra.txt
+  mkdir -p skills && ln -s "$PWD/fora" skills/adr-std
+  printf 's\n' > answer
+  ADR_STD_TODAY=2026-10-27 ADR_STD_TTY="$PWD/answer" act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >out.txt 2>&1; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_eq "$ACT_RESULT" "adopted-with-backup" || return 1
+  [ -L "$PWD/skills/adr-std.bak-2026-10-27" ] || fail "o backup deveria ser o próprio link" || return 1
+  assert_eq "$(readlink "$PWD/skills/adr-std.bak-2026-10-27")" "$PWD/fora" "link do backup intacto" || return 1
+  assert_eq "$(cat fora/extra.txt)" "alvo" "alvo não tocado" || return 1
+  [ ! -L "$PWD/skills/adr-std" ] || fail "o destino novo deveria ser cópia" || return 1
+  assert_file "$PWD/skills/adr-std/$MARKER"
+}
+
+test_adopt_confirmed_with_link_mode() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std
+  LINK=1; printf 's\n' > answer
+  ADR_STD_TODAY=2026-10-27 ADR_STD_TTY="$PWD/answer" act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >/dev/null 2>&1; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_eq "$(readlink "$PWD/skills/adr-std")" "$SRC/skill" "link para a fonte" || return 1
+  assert_eq "$(state_agent_mode claude-code)" "link"
+}
+
+test_adopt_backup_failure_does_not_install() {
+  [ "$(id -u)" -ne 0 ] || { echo "    (pulado: root ignora permissões)"; return 0; }
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std; printf 'original\n' > skills/adr-std/extra.txt
+  printf 's\n' > answer
+  chmod a-w skills
+  ADR_STD_TODAY=2026-10-27 ADR_STD_TTY="$PWD/answer" act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >/dev/null 2>&1; local rc=$?
+  chmod u+w skills
+  assert_eq "$rc" "4" || return 1
+  assert_eq "$ACT_RESULT" "skipped:backup-falhou" || return 1
+  assert_eq "$(cat skills/adr-std/extra.txt)" "original" "pasta intacta, sem instalar por cima" || return 1
+  assert_no_file "$PWD/skills/adr-std/$MARKER" || return 1
+  assert_eq "$(state_agents)" "" "nada registrado"
+}
+
+# --adopt e modo sem terminal (RF-06, RF-07, RF-08, SEG-01).
+test_adopt_flag_parsed() {
+  load_lib
+  ADOPT=0; parse_args claude-code --adopt
+  assert_eq "$ADOPT" "1" "--adopt liga ADOPT" || return 1
+  ADOPT=0; parse_args claude-code
+  assert_eq "$ADOPT" "0" "sem --adopt, ADOPT fica 0"
+}
+
+test_adopt_flag_adopts_without_asking() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std; printf 'original\n' > skills/adr-std/extra.txt
+  ADOPT=1
+  ADR_STD_TODAY=2026-10-27 ADR_STD_TTY=/nao/existe act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >out.txt 2>&1; local rc=$?
+  assert_eq "$rc" "0" || return 1
+  assert_eq "$ACT_RESULT" "adopted-with-backup" || return 1
+  assert_eq "$(cat skills/adr-std.bak-2026-10-27/extra.txt)" "original" "backup com o conteúdo original" || return 1
+  assert_file "$PWD/skills/adr-std/$MARKER" || return 1
+  assert_eq "$(state_agent_mode claude-code)" "copy" || return 1
+  if grep -qF "[s/N]" out.txt; then fail "--adopt não deveria perguntar"; return 1; fi
+}
+
+test_adopt_flag_ignores_terminal_answer() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std
+  printf 'n\n' > answer
+  ADOPT=1
+  ADR_STD_TODAY=2026-10-27 ADR_STD_TTY="$PWD/answer" act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >/dev/null 2>&1
+  assert_eq "$ACT_RESULT" "adopted-with-backup" "--adopt vale mesmo com terminal"
+}
+
+test_adopt_flag_never_touches_foreign_other() {
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std outra-skill
+  ADOPT=1
+  act_on_dest claude-code foreign-other "$PWD/skills/adr-std" >/dev/null 2>&1; local rc=$?
+  assert_eq "$rc" "4" || return 1
+  assert_eq "$ACT_RESULT" "skipped:outra-skill" || return 1
+  assert_eq "$(skill_name_of "$PWD/skills/adr-std")" "outra-skill" "intacta" || return 1
+  assert_eq "$(ls skills | grep -c bak)" "0" "sem backup" || return 1
+  assert_eq "$(state_agents)" "" "não registra"
+}
+
+test_adopt_flag_backup_failure_does_not_install() {
+  [ "$(id -u)" -ne 0 ] || { echo "    (pulado: root ignora permissões)"; return 0; }
+  load_act_on_dest || return 1
+  classify_skill_dir skills/adr-std adr-std; printf 'original\n' > skills/adr-std/extra.txt
+  ADOPT=1; chmod a-w skills
+  ADR_STD_TODAY=2026-10-27 act_on_dest claude-code foreign-adr-std "$PWD/skills/adr-std" >/dev/null 2>&1; local rc=$?
+  chmod u+w skills
+  assert_eq "$rc" "4" || return 1
+  assert_eq "$ACT_RESULT" "skipped:backup-falhou" || return 1
+  assert_eq "$(cat skills/adr-std/extra.txt)" "original" "pasta intacta" || return 1
+  assert_eq "$(state_agents)" "" "nada registrado"
+}
+
+test_install_without_terminal_skips_with_adopt_hint() {
+  mkdir -p "$HOME/.claude/skills/adr-std"
+  printf -- '---\nname: adr-std\n---\n' > "$HOME/.claude/skills/adr-std/SKILL.md"
+  local out code
+  out="$(ADR_STD_TTY=/nao/existe "$CLI" install claude-code 2>&1)"; code=$?
+  assert_eq "$code" "4" || return 1
+  assert_contains "$out" "sem-terminal" || return 1
+  assert_contains "$out" "--adopt" "dica de --adopt" || return 1
+  assert_no_file "$HOME/.claude/skills/adr-std/.installed-by-adr-std" || return 1
+  assert_eq "$(ls "$HOME/.claude/skills" | grep -c bak)" "0" "sem backup"
+}
+
+test_install_with_adopt_flag_end_to_end() {
+  mkdir -p "$HOME/.claude/skills/adr-std" "$HOME/.codex/skills/outra"
+  printf -- '---\nname: adr-std\n---\n' > "$HOME/.claude/skills/adr-std/SKILL.md"
+  printf 'x\n' > "$HOME/.claude/skills/adr-std/extra.txt"
+  local out code
+  out="$(ADR_STD_TTY=/nao/existe ADR_STD_TODAY=2026-10-27 "$CLI" install claude-code --adopt 2>&1)"; code=$?
+  assert_eq "$code" "0" "$out" || return 1
+  assert_file "$HOME/.claude/skills/adr-std/.installed-by-adr-std" || return 1
+  assert_eq "$(cat "$HOME/.claude/skills/adr-std.bak-2026-10-27/extra.txt")" "x" "backup" || return 1
+  assert_contains "$out" "Pronto." || return 1
+  grep -qE "^agent"$'\t'"claude-code"$'\t' "$(state_file)" || fail "estado sem claude-code"
+}
+
+# --dry-run por destino (RF-10): classe e ação, sem alterar arquivos nem estado e sem ler o terminal.
+snapshot_home() { # árvore, conteúdo e links do HOME de teste
+  ( cd "$HOME" && find . | sort && find . -type f -exec cksum {} + | sort && find . -type l -exec readlink {} + | sort )
+}
+
+dry_run_setup() { # monta as cinco classes em cinco agentes
+  "$CLI" install claude-code >/dev/null 2>&1                                  # ours
+  mkdir -p "$HOME/.codex/skills" && ln -s "$ROOT/skill" "$HOME/.codex/skills/adr-std"   # repo-link
+  mkdir -p "$HOME/.cursor/skills/adr-std" && printf -- '---\nname: adr-std\n---\n' > "$HOME/.cursor/skills/adr-std/SKILL.md"  # foreign-adr-std
+  mkdir -p "$HOME/.roo/skills/adr-std" && printf -- '---\nname: outra\n---\n' > "$HOME/.roo/skills/adr-std/SKILL.md"          # foreign-other
+  mkdir -p "$HOME/.codeium/windsurf"                                           # absent
+}
+
+test_dry_run_five_classes_changes_nothing() {
+  dry_run_setup
+  local before after out code
+  before="$(snapshot_home)"
+  out="$(ADR_STD_TTY=/nao/existe "$CLI" install claude-code codex cursor roo windsurf --dry-run 2>&1)"; code=$?
+  after="$(snapshot_home)"
+  assert_eq "$code" "0" "$out" || return 1
+  assert_eq "$after" "$before" "a simulação não pode alterar arquivos nem estado" || return 1
+  assert_contains "$out" "$HOME/.claude/skills/adr-std: ours -> atualizaria" || return 1
+  assert_contains "$out" "$HOME/.codex/skills/adr-std: repo-link -> registraria sem alterar" || return 1
+  assert_contains "$out" "$HOME/.cursor/skills/adr-std: foreign-adr-std -> pularia" || return 1
+  assert_contains "$out" "$HOME/.roo/skills/adr-std: foreign-other -> pularia" || return 1
+  assert_contains "$out" "$HOME/.codeium/windsurf/skills/adr-std: absent -> instalaria" || return 1
+}
+
+test_dry_run_foreign_adr_std_adopt_and_ask() {
+  dry_run_setup
+  local out before after
+  before="$(snapshot_home)"
+  out="$(ADR_STD_TTY=/nao/existe "$CLI" install cursor --dry-run --adopt 2>&1)"
+  assert_contains "$out" "foreign-adr-std -> adotaria" "com --adopt" || return 1
+  # terminal disponível: perguntaria, sem ler (a FIFO tem escritor e ninguém responde; se lesse, travaria)
+  local fifo="$HOME/tty.fifo"; mkfifo "$fifo"; exec 4<>"$fifo"
+  out="$(ADR_STD_TTY="$fifo" timeout 10 "$CLI" install cursor --dry-run 2>&1)"; local code=$?
+  exec 4>&-
+  assert_eq "$code" "0" "não deve travar lendo o terminal" || return 1
+  assert_contains "$out" "foreign-adr-std -> perguntaria" "com terminal" || return 1
+  rm -f "$fifo"
+  after="$(snapshot_home)"
+  assert_eq "$after" "$before" "nada alterado"
+}
+
+test_dry_run_shared_dest_single_line() {
+  mkdir -p "$HOME/.gemini" "$HOME/.config/opencode"
+  local out
+  out="$("$CLI" install gemini-cli opencode --dry-run 2>&1)"
+  assert_eq "$(printf '%s\n' "$out" | grep -c ': absent -> instalaria')" "1" "uma linha por pasta compartilhada"
+}
+
+# backup_dest (RF-05, D-12, SEG-01): mv do próprio caminho para <pasta>.bak-<data>, sem sobrescrever.
+test_backup_dest_directory() {
+  load_lib
+  mkdir -p skills/adr-std && printf 'conteudo\n' > skills/adr-std/SKILL.md
+  local out
+  out="$(ADR_STD_TODAY=2026-10-27 backup_dest "$PWD/skills/adr-std")" || fail "backup_dest falhou" || return 1
+  assert_eq "$out" "$PWD/skills/adr-std.bak-2026-10-27" "imprime o caminho do backup" || return 1
+  assert_no_file skills/adr-std || return 1
+  assert_eq "$(cat skills/adr-std.bak-2026-10-27/SKILL.md)" "conteudo" "conteúdo idêntico ao original"
+}
+
+test_backup_dest_link_not_dereferenced() {
+  load_lib
+  mkdir -p alvo && printf 'x\n' > alvo/SKILL.md
+  mkdir -p skills && ln -s "$PWD/alvo" skills/adr-std
+  local out
+  out="$(ADR_STD_TODAY=2026-10-27 backup_dest "$PWD/skills/adr-std")" || fail "backup_dest falhou" || return 1
+  [ ! -e skills/adr-std ] && [ ! -L skills/adr-std ] || fail "o destino original deveria ter saído" || return 1
+  [ -L "$out" ] || fail "o backup de um link deveria continuar link" || return 1
+  assert_eq "$(readlink "$out")" "$PWD/alvo" "link movido aponta para o mesmo alvo" || return 1
+  assert_eq "$(cat alvo/SKILL.md)" "x" "alvo intacto"
+}
+
+test_backup_dest_suffix_when_exists() {
+  load_lib
+  mkdir -p skills/adr-std && printf 'novo\n' > skills/adr-std/SKILL.md
+  mkdir -p skills/adr-std.bak-2026-10-27 && printf 'antigo1\n' > skills/adr-std.bak-2026-10-27/SKILL.md
+  local out
+  out="$(ADR_STD_TODAY=2026-10-27 backup_dest "$PWD/skills/adr-std")" || fail "backup_dest falhou" || return 1
+  assert_eq "$out" "$PWD/skills/adr-std.bak-2026-10-27-2" "primeiro sufixo" || return 1
+  assert_eq "$(cat skills/adr-std.bak-2026-10-27/SKILL.md)" "antigo1" "backup anterior intacto" || return 1
+  mkdir -p skills/adr-std && printf 'novo2\n' > skills/adr-std/SKILL.md
+  out="$(ADR_STD_TODAY=2026-10-27 backup_dest "$PWD/skills/adr-std")" || fail "backup_dest falhou (2)" || return 1
+  assert_eq "$out" "$PWD/skills/adr-std.bak-2026-10-27-3" "segundo sufixo" || return 1
+  assert_eq "$(cat skills/adr-std.bak-2026-10-27-2/SKILL.md)" "novo" "segundo backup intacto"
+}
+
+test_backup_dest_mv_failure() {
+  load_lib
+  [ "$(id -u)" != "0" ] || return 0   # root ignora permissões; o caso não se aplica
+  mkdir -p skills/adr-std && printf 'orig\n' > skills/adr-std/SKILL.md
+  chmod a-w skills
+  local rc=0 out
+  out="$(ADR_STD_TODAY=2026-10-27 backup_dest "$PWD/skills/adr-std" 2>&1)" || rc=$?
+  chmod u+w skills
+  [ "$rc" -ne 0 ] || fail "falha de mv deveria retornar erro" || return 1
+  assert_eq "$(cat skills/adr-std/SKILL.md)" "orig" "origem intacta" || return 1
+  assert_eq "$(ls skills | grep -c bak)" "0" "nada pela metade"
+}
+
+test_owned_by_us_regressions() {
+  load_owned_by_us || return 1
+  classify_skill_dir "$PWD/copia" adr-std && : > "$PWD/copia/$MARKER"
+  classify_skill_dir "$PWD/semmarca" adr-std
+  ln -s "$SRC/skill" naoreg
+  classify_skill_dir "$PWD/fora" adr-std && ln -s "$PWD/fora" paraforaA && ln -s "$PWD/paraforaA" paraforaB
+  ln -s "$PWD/nada" quebrado
+  printf 'agent\ta\t%s\nagent\tb\t%s\nagent\tc\t%s\nagent\td\t%s\n' \
+    "$PWD/copia" "$PWD/semmarca" "$PWD/paraforaB" "$PWD/quebrado" > "$STATE_FILE"
+  owned_by_us "$PWD/copia" || fail "cópia registrada com marcador deveria ser nossa" || return 1
+  ! owned_by_us "$PWD/semmarca" || fail "cópia registrada sem marcador não é nossa" || return 1
+  ! owned_by_us "$PWD/naoreg" || fail "link não registrado não é nosso" || return 1
+  ! owned_by_us "$PWD/paraforaB" || fail "link registrado para fora da fonte não é nosso" || return 1
+  ! owned_by_us "$PWD/quebrado" || fail "link quebrado registrado não é nosso"
+}
+
+test_classify_dest_absent() {
+  load_classify_dest || return 1
+  assert_eq "$(classify_dest "$PWD/destino")" "absent"
+}
+
+test_classify_dest_ours() {
+  load_classify_dest || return 1
+  classify_skill_dir "$PWD/copia" adr-std && : > "$PWD/copia/$MARKER"
+  printf 'agent\tclaude-code\t%s\n' "$PWD/copia" > "$STATE_FILE"
+  assert_eq "$(classify_dest "$PWD/copia")" "ours" "cópia registrada com marcador" || return 1
+  ln -s "$SRC/skill" lnk
+  printf 'agent\tclaude-code\t%s\n' "$PWD/lnk" >> "$STATE_FILE"
+  assert_eq "$(classify_dest "$PWD/lnk")" "ours" "link para a fonte registrado"
+}
+
+test_classify_dest_repo_link() {
+  load_classify_dest || return 1
+  ln -s "$SRC/skill" direto
+  assert_eq "$(classify_dest "$PWD/direto")" "repo-link" "direto" || return 1
+  ln -s "$PWD/direto" meio && ln -s "$PWD/meio" encadeado
+  assert_eq "$(classify_dest "$PWD/encadeado")" "repo-link" "encadeado" || return 1
+  ln -s "$DATA_DIR/skill" dados
+  assert_eq "$(classify_dest "$PWD/dados")" "repo-link" "para DATA_DIR/skill"
+}
+
+test_classify_dest_repo_link_symlinked_parent() {
+  load_classify_dest || return 1
+  mkdir -p real/src/skill && ln -s "$PWD/real" via
+  SRC="$PWD/via/src"
+  ln -s "$PWD/real/src/skill" fisico
+  assert_eq "$(classify_dest "$PWD/fisico")" "repo-link" "SRC lógico, link físico" || return 1
+  SRC="$PWD/real/src"
+  ln -s "$PWD/via/src/skill" logico
+  assert_eq "$(classify_dest "$PWD/logico")" "repo-link" "SRC físico, link lógico"
+}
+
+test_classify_dest_foreign_adr_std() {
+  load_classify_dest || return 1
+  classify_skill_dir "$PWD/copia" adr-std
+  assert_eq "$(classify_dest "$PWD/copia")" "foreign-adr-std" "cópia sem registro" || return 1
+  classify_skill_dir "$PWD/fora" adr-std && ln -s "$PWD/fora" ponte
+  assert_eq "$(classify_dest "$PWD/ponte")" "foreign-adr-std" "link para fora da fonte"
+}
+
+test_classify_dest_foreign_other() {
+  load_classify_dest || return 1
+  classify_skill_dir "$PWD/outra" outra-coisa
+  assert_eq "$(classify_dest "$PWD/outra")" "foreign-other" "outra skill" || return 1
+  mkdir -p vazia
+  assert_eq "$(classify_dest "$PWD/vazia")" "foreign-other" "sem SKILL.md" || return 1
+  ln -s "$PWD/b" a && ln -s "$PWD/a" b
+  assert_eq "$(classify_dest "$PWD/a")" "foreign-other" "ciclo" || return 1
+  ln -s "$PWD/ausente" quebrado
+  assert_eq "$(classify_dest "$PWD/quebrado")" "foreign-other" "link quebrado"
+}
+
+test_classify_dest_read_only() {
+  load_classify_dest || return 1
+  ln -s "$SRC/skill" direto
+  classify_skill_dir "$PWD/copia" adr-std
+  classify_skill_dir "$PWD/outra" outra-coisa
+  printf 'agent\tclaude-code\t%s\n' "$PWD/copia" > "$STATE_FILE"
+  local before after d
+  snapshot() { find "$PWD" | sort; find "$PWD" -type f -exec cksum {} + | sort; find "$PWD" -type l -exec readlink {} +; }
+  before="$(snapshot)"
+  for d in direto copia outra ausente; do classify_dest "$PWD/$d" >/dev/null; done
+  after="$(snapshot)"
+  assert_eq "$after" "$before" "a árvore não pode mudar"
+}
+
+# Estado com modo por agente (D-9, RF-11): 4ª coluna da linha `agent`.
+load_state_mode() {
+  load_lib
+  declare -F state_agent_mode >/dev/null || fail "state_agent_mode não definida em bin/adr-std" || return 1
+  CONFIG_DIR="$PWD/cfg"; STATE_FILE="$CONFIG_DIR/state"
+}
+
+test_state_agent_mode_fourth_column() {
+  load_state_mode || return 1
+  state_add_agent claude-code "$PWD/a" link
+  state_add_agent codex "$PWD/b" copy
+  assert_eq "$(state_agent_mode claude-code)" "link" "modo link gravado" || return 1
+  assert_eq "$(state_agent_mode codex)" "copy" "modo copy gravado" || return 1
+  grep -qE '^agent'$'\t''claude-code'$'\t'"$PWD/a"$'\t''link$' "$STATE_FILE" || fail "linha sem a 4ª coluna" || return 1
+  assert_eq "$(state_agents | cut -f1,2 | tr '\t' ' ' | tr '\n' ';')" "claude-code $PWD/a;codex $PWD/b;" "state_agents mantém só id e pasta" || return 1
+  assert_eq "$(state_agents | awk -F'\t' '{print NF}' | sort -u)" "2" "state_agents imprime duas colunas"
+}
+
+test_state_agent_mode_old_state_falls_back_to_global() {
+  load_state_mode || return 1
+  mkdir -p "$CONFIG_DIR"
+  printf 'version\t3.0.0\nmode\tlink\nagent\tclaude-code\t%s\n' "$PWD/a" > "$STATE_FILE"
+  assert_eq "$(state_agent_mode claude-code)" "link" "3 colunas cai no mode global (link)" || return 1
+  printf 'version\t3.0.0\nmode\tcopy\nagent\tclaude-code\t%s\n' "$PWD/a" > "$STATE_FILE"
+  assert_eq "$(state_agent_mode claude-code)" "copy" "3 colunas cai no mode global (copy)" || return 1
+  printf 'version\t3.0.0\nmode\tlink\nagent\tclaude-code\t%s\tcopy\n' "$PWD/a" > "$STATE_FILE"
+  assert_eq "$(state_agent_mode claude-code)" "copy" "a coluna do agente vence o mode global"
+}
+
+test_state_agent_mode_empty_without_any() {
+  load_state_mode || return 1
+  assert_eq "$(state_agent_mode claude-code)" "" "sem arquivo de estado" || return 1
+  mkdir -p "$CONFIG_DIR"
+  printf 'version\t3.0.0\nagent\tclaude-code\t%s\n' "$PWD/a" > "$STATE_FILE"
+  assert_eq "$(state_agent_mode claude-code)" "" "sem coluna e sem mode global" || return 1
+  assert_eq "$(state_agent_mode outro)" "" "agente não registrado"
+}
+
+test_install_records_mode_per_agent() {
+  local bin="$ROOT/bin/adr-std"
+  mkdir -p "$HOME/.claude"
+  "$bin" install --agent claude-code --no-commands >/dev/null 2>&1 || fail "install copy falhou" || return 1
+  grep -qE '^agent'$'\t''claude-code'$'\t''[^'$'\t'']+'$'\t''copy$' "$(state_file)" || fail "install sem --link não gravou copy" || return 1
+  rm -rf "$HOME/.claude/skills/adr-std"
+  "$bin" uninstall --agent claude-code >/dev/null 2>&1
+  "$bin" install --agent claude-code --link --no-commands >/dev/null 2>&1 || fail "install --link falhou" || return 1
+  grep -qE '^agent'$'\t''claude-code'$'\t''[^'$'\t'']+'$'\t''link$' "$(state_file)" || fail "install --link não gravou link"
+}
+
+# cmd_install sem interrupção por conflito (RF-09, RF-12, D-14): o laço segue, o resumo lista os pulos e o código é 4.
+test_install_all_conflict_continues() {
+  mkdir -p "$HOME/.claude/skills/adr-std" "$HOME/.codex" "$HOME/.gemini"
+  echo "do usuário" > "$HOME/.claude/skills/adr-std/nota.txt"
+  local out code
+  out="$("$CLI" install --all 2>&1)"; code=$?
+  assert_eq "$code" "4" "código de saída com pulo" || return 1
+  assert_file "$HOME/.codex/skills/adr-std/SKILL.md" || return 1
+  assert_file "$HOME/.agents/skills/adr-std/SKILL.md" || return 1
+  assert_file "$HOME/.claude/commands/adr-std-create.md" || fail "comandos /adr-std-* não foram criados" || return 1
+  assert_eq "$(cat "$HOME/.claude/skills/adr-std/nota.txt")" "do usuário" || return 1
+  assert_no_file "$HOME/.claude/skills/adr-std/SKILL.md" || return 1
+  assert_contains "$out" "$HOME/.claude/skills/adr-std" || return 1
+  assert_contains "$out" "outra-skill" || return 1
+  grep -qE "^agent"$'\t'"codex"$'\t' "$(state_file)" || fail "estado sem codex" || return 1
+  if grep -qE "^agent"$'\t'"claude-code"$'\t' "$(state_file)"; then fail "agente pulado foi registrado"; return 1; fi
+}
+
+test_install_all_skipped_no_pronto() {
+  mkdir -p "$HOME/.claude/skills/adr-std"
+  echo "x" > "$HOME/.claude/skills/adr-std/nota.txt"
+  local out code
+  out="$("$CLI" install claude-code 2>&1)"; code=$?
+  assert_eq "$code" "4" || return 1
+  if printf '%s' "$out" | grep -qF "Pronto."; then fail "não deveria dizer Pronto quando tudo foi pulado"; return 1; fi
+  if grep -qE "^(version|mode|agent)"$'\t' "$(state_file)" 2>/dev/null; then fail "estado de skill gravado sem instalação"; return 1; fi
+}
+
+test_install_no_skip_exit_zero() {
+  mkdir -p "$HOME/.claude"
+  local out code
+  out="$("$CLI" install claude-code 2>&1)"; code=$?
+  assert_eq "$code" "0" || return 1
+  assert_contains "$out" "Pronto." || return 1
+  if printf '%s' "$out" | grep -qF "outra-skill"; then fail "resumo de pulo sem pulo"; return 1; fi
+}
+
+test_install_shared_dest_single_classification() {
+  mkdir -p "$HOME/.gemini" "$HOME/.config/opencode" "$HOME/.agents/skills/adr-std"
+  echo "x" > "$HOME/.agents/skills/adr-std/nota.txt"
+  local out code
+  out="$("$CLI" install gemini-cli opencode --no-commands 2>&1)"; code=$?
+  assert_eq "$code" "4" || return 1
+  local n; n=$(printf '%s\n' "$out" | grep -cF "outra-skill")
+  assert_eq "$n" "1" "um resumo por pasta compartilhada" || return 1
+  if grep -qE "^agent"$'\t' "$(state_file)" 2>/dev/null; then fail "agente de pasta pulada foi registrado"; return 1; fi
+}
+
+test_install_unknown_agent_still_code_2() {
+  local out code
+  out="$("$CLI" install --agent agente-inexistente 2>&1)"; code=$?
+  assert_eq "$code" "2" || return 1
+  assert_contains "$out" "agente desconhecido" || return 1
+}
+
+test_install_failure_becomes_skipped() {
+  if [ "$(id -u)" -eq 0 ]; then echo "    (pulado: root ignora permissões)"; return 0; fi
+  mkdir -p "$HOME/.claude" "$HOME/.codex"
+  chmod a-w "$HOME/.claude"
+  local out code
+  out="$("$CLI" install --agent claude-code,codex --no-commands 2>&1)"; code=$?
+  chmod u+w "$HOME/.claude"
+  assert_eq "$code" "4" || return 1
+  assert_contains "$out" "falha-na-instalacao" || return 1
+  assert_no_file "$HOME/.claude/skills/adr-std" || return 1
+  assert_file "$HOME/.codex/skills/adr-std/SKILL.md" || return 1
+  if grep -qE "^agent"$'\t'"claude-code"$'\t' "$(state_file)"; then fail "falha registrada como instalada"; return 1; fi
 }
 
 # ---------------------------------------------------------------------------

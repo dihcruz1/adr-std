@@ -172,9 +172,17 @@ state_del() { # chave
   mv "$STATE_FILE.tmp" "$STATE_FILE"
 }
 
-state_add_agent() { # id pasta
+# Modo (link|copy) do agente: 4ª coluna da linha `agent`; sem ela, cai no `mode` global; sem nenhum, vazio.
+state_agent_mode() { # id
+  local m
+  m="$(state_lines | awk -F'\t' -v id="$1" '$1 == "agent" && $2 == id { print $4; exit }')"
+  [ -n "$m" ] || m="$(state_get mode)"
+  printf '%s\n' "$m"
+}
+
+state_add_agent() { # id pasta modo
   mkdir -p "$CONFIG_DIR"
-  { state_lines | awk -F'\t' -v id="$1" '!($1 == "agent" && $2 == id)'; printf 'agent\t%s\t%s\n' "$1" "$2"; } > "$STATE_FILE.tmp"
+  { state_lines | awk -F'\t' -v id="$1" '!($1 == "agent" && $2 == id)'; printf 'agent\t%s\t%s\t%s\n' "$1" "$2" "${3:-}"; } > "$STATE_FILE.tmp"
   mv "$STATE_FILE.tmp" "$STATE_FILE"
 }
 
@@ -201,6 +209,7 @@ state_del_commands_for() { # id
 AGENTS=()
 ALL=0
 LINK=0
+ADOPT=0
 DRY=0
 NO_COMMANDS=0
 NO_MIGRATE=0
@@ -215,6 +224,7 @@ parse_args() {
       --agent=*) set -- "${tok#--agent=}" "$@" ;;
       --all)     ALL=1 ;;
       --link)    LINK=1 ;;
+      --adopt)   ADOPT=1 ;;
       --dry-run) DRY=1 ;;
       --no-commands) NO_COMMANDS=1 ;;
       --no-migrate)  NO_MIGRATE=1 ;;
@@ -236,12 +246,101 @@ parse_args() {
 
 # --- instalação -------------------------------------------------------------
 
+# Segue a cadeia de links de uma pasta e imprime o destino final (existente e que não é link).
+# No máximo 10 saltos; ciclo, link quebrado ou caminho inexistente retornam 1. Sem readlink -f (não portátil).
+resolve_link_chain() { # caminho
+  local cur="$1" hops=0 seen=" " target
+  while [ -L "$cur" ]; do
+    [ "$hops" -lt 10 ] || return 1
+    case "$seen" in *" $cur "*) return 1 ;; esac
+    seen="$seen$cur "
+    target="$(readlink "$cur")" || return 1
+    case "$target" in
+      /*) cur="$target" ;;
+      *) cur="$(dirname "$cur")/$target" ;;
+    esac
+    hops=$((hops + 1))
+  done
+  [ -e "$cur" ] || return 1
+  # normaliza "." e ".." do caminho (lexical, sem resolver links do diretório pai)
+  printf '%s/%s\n' "$(cd "$(dirname "$cur")" && pwd)" "$(basename "$cur")"
+}
+
+# Valor de "name" no frontmatter (primeiro bloco ---, até 20 linhas) do SKILL.md da pasta; vazio se ausente.
+# Lê como texto: o conteúdo nunca é executado nem expandido (SEG-03).
+skill_name_of() { # pasta
+  local file="$1/SKILL.md"
+  [ -f "$file" ] || return 0
+  head -n 20 "$file" | awk -v bom="$(printf '\357\273\277')" '
+    { sub(/\r$/, "") }
+    NR == 1 { if (index($0, bom) == 1) $0 = substr($0, length(bom) + 1); if ($0 != "---") exit; next }
+    $0 == "---" { exit }
+    /^name:[ \t]*/ { sub(/^name:[ \t]*/, ""); sub(/[ \t\r]+$/, ""); print; exit }'
+}
+
+# Caminho físico (sem links nos componentes) de um caminho existente; usado para comparar os dois lados da mesma forma.
+physical_path() { # caminho
+  if [ -d "$1" ]; then
+    (cd -P "$1" 2>/dev/null && pwd -P)
+  else
+    local d; d="$(cd -P "$(dirname "$1")" 2>/dev/null && pwd -P)" || return 1
+    printf '%s/%s\n' "$d" "$(basename "$1")"
+  fi
+}
+
+# O destino é um link cuja cadeia termina na pasta skill/ da fonte (D-7: $SRC/skill ou $DATA_DIR/skill)?
+points_to_source() { # destino
+  [ -L "$1" ] || return 1
+  local final real src
+  final="$(resolve_link_chain "$1")" || return 1
+  real="$(physical_path "$final")" || return 1
+  for src in "$SRC/skill" "$DATA_DIR/skill"; do
+    [ -e "$src" ] || continue
+    [ "$(physical_path "$src")" = "$real" ] && return 0
+  done
+  return 1
+}
+
+# Classifica o destino de uma instalação, sem escrever nada. Classes (design.md): absent, ours,
+# repo-link, foreign-adr-std, foreign-other.
+classify_dest() { # pasta
+  local dest="$1"
+  if [ ! -e "$dest" ] && [ ! -L "$dest" ]; then echo absent; return 0; fi
+  if owned_by_us "$dest"; then echo ours; return 0; fi
+  if [ -L "$dest" ]; then
+    points_to_source "$dest" && { echo repo-link; return 0; }
+    resolve_link_chain "$dest" >/dev/null || { echo foreign-other; return 0; }
+  fi
+  if [ "$(skill_name_of "$dest")" = "adr-std" ]; then echo foreign-adr-std; else echo foreign-other; fi
+}
+
+# Move a pasta (ou o link, sem desreferenciar) para <pasta>.bak-<AAAA-MM-DD> no mesmo diretório, com
+# sufixo -2, -3... se o nome já existir; nunca sobrescreve. Imprime o caminho do backup. Falha de mv
+# devolve erro e deixa a origem como estava. ADR_STD_TODAY fixa a data nos testes.
+backup_path_for() { # pasta → próximo nome livre de backup (sem criar nada)
+  local dest="${1%/}" day bak n=1
+  day="${ADR_STD_TODAY:-$(date +%Y-%m-%d)}"
+  bak="$dest.bak-$day"
+  while [ -e "$bak" ] || [ -L "$bak" ]; do
+    n=$((n + 1))
+    bak="$dest.bak-$day-$n"
+  done
+  printf '%s\n' "$bak"
+}
+
+backup_dest() { # pasta
+  local dest="${1%/}" bak
+  bak="$(backup_path_for "$dest")"
+  mv -- "$dest" "$bak" || return 1
+  printf '%s\n' "$bak"
+}
+
 # A pasta foi instalada por este comando? (registrada no estado E com marcador ou link para a fonte)
 owned_by_us() {
   local dest="$1"
   state_agents | cut -f2 | grep -qxF -- "$dest" || return 1
   if [ -L "$dest" ]; then
-    [ "$(readlink "$dest")" = "$SRC/skill" ] || [ "$(readlink "$dest")" = "$DATA_DIR/skill" ]
+    points_to_source "$dest"
   else
     [ -f "$dest/$MARKER" ]
   fi
@@ -257,16 +356,87 @@ install_to() { # pasta de destino
       return 4
     fi
   fi
-  mkdir -p "$(dirname "$dest")"
+  mkdir -p "$(dirname "$dest")" 2>/dev/null || { err "não foi possível criar $(dirname "$dest")"; return 1; }
   if [ "$LINK" -eq 1 ]; then
-    ln -s "$SRC/skill" "$dest"
+    ln -s "$SRC/skill" "$dest" || { err "não foi possível criar o link $dest"; return 1; }
   else
     tmp="$dest.tmp.$$"
-    cp -R "$SRC/skill" "$tmp"
-    printf 'adr-std %s instalado em %s\n' "$(version)" "$(date +%Y-%m-%d)" > "$tmp/$MARKER"
-    mv "$tmp" "$dest"
+    if ! { cp -R "$SRC/skill" "$tmp" \
+           && printf 'adr-std %s instalado em %s\n' "$(version)" "$(date +%Y-%m-%d)" > "$tmp/$MARKER" \
+           && mv "$tmp" "$dest"; } 2>/dev/null; then
+      rm -rf "$tmp"
+      err "não foi possível instalar em $dest"
+      return 1
+    fi
   fi
   echo "  ✔ adr-std $(version) → $dest"
+}
+
+# Age sobre um destino já classificado (classify_dest). O resultado fica em ACT_RESULT
+# (installed, updated, adopted-in-place, skipped:<motivo>); código 0 se instalou/atualizou/adotou, 4 se pulou.
+# Registra no estado o que instalou ou adotou. A adoção de foreign-adr-std pede confirmação [s/N] (4.1); com --adopt, adota com backup sem perguntar (RF-06).
+ACT_RESULT=""
+act_on_dest() { # id classe pasta
+  local id="$1" class="$2" dest="$3" saved_link="$LINK" rc=0
+  ACT_RESULT=""
+  case "$class" in
+    absent|ours)
+      # D-16: destino nosso em modo link continua link, mesmo sem --link
+      [ "$class" = "ours" ] && [ "$(state_agent_mode "$id")" = "link" ] && LINK=1
+      install_to "$dest" || rc=$?
+      if [ "$rc" -eq 0 ]; then
+        state_add_agent "$id" "$dest" "$([ "$LINK" -eq 1 ] && echo link || echo copy)"
+        ACT_RESULT="$([ "$class" = "absent" ] && echo installed || echo updated)"
+      else
+        ACT_RESULT="skipped:falha-na-instalacao"
+      fi
+      LINK="$saved_link" ;;
+    repo-link)
+      state_add_agent "$id" "$dest" link
+      echo "  ✔ $dest já aponta para o repositório; registrado sem alterar"
+      ACT_RESULT="adopted-in-place" ;;
+    foreign-adr-std)
+      local kind bak
+      if [ -L "$dest" ]; then kind="link para $(readlink "$dest")"; else kind="pasta (cópia)"; fi
+      bak="$(backup_path_for "$dest")"
+      echo "  ! $dest é um adr-std que não foi instalado por este comando ($kind)."
+      echo "    Será movido para $bak e substituído pela versão $(version)."
+      if [ "$ADOPT" -eq 1 ]; then
+        REPLY_LINE="s"
+      elif ! read_tty_line "    Adotar? [s/N] "; then
+        echo "  ! sem terminal para confirmar; $dest mantido (use --adopt para adotar sem perguntar)"
+        ACT_RESULT="skipped:sem-terminal"
+        REPLY_LINE=""
+      fi
+      if [ -z "$ACT_RESULT" ]; then
+        case "$REPLY_LINE" in
+          s|S)
+            if ! backup_dest "$dest" >/dev/null; then
+              err "não foi possível criar o backup de $dest; nada foi alterado"
+              ACT_RESULT="skipped:backup-falhou"
+            elif install_to "$dest"; then
+              state_add_agent "$id" "$dest" "$([ "$LINK" -eq 1 ] && echo link || echo copy)"
+              echo "  ✔ backup em $bak"
+              ACT_RESULT="adopted-with-backup"
+            else
+              # restaura o original para o agente não ficar sem skill
+              if [ ! -e "$dest" ] && [ ! -L "$dest" ] && mv -- "$bak" "$dest"; then
+                err "falha ao instalar em $dest; o original foi restaurado"
+              else
+                err "falha ao instalar em $dest; o original está em $bak"
+              fi
+              ACT_RESULT="skipped:falha-na-instalacao"
+            fi ;;
+          *)
+            echo "  • adoção recusada; $dest mantido"
+            ACT_RESULT="skipped:recusado" ;;
+        esac
+      fi ;;
+    *)
+      echo "  ! $dest existe e não é o adr-std; mantido"
+      ACT_RESULT="skipped:outra-skill" ;;
+  esac
+  case "$ACT_RESULT" in skipped:*) return 4 ;; *) return 0 ;; esac
 }
 
 # Menu de escolha. Lê de /dev/tty (funciona também em "curl | bash").
@@ -327,6 +497,26 @@ install_commands() { # instala os arquivos de comando de ação para os AGENTS s
   done
 }
 
+# O terminal pode ser aberto? Só abre e fecha, sem ler (usado pela simulação, RF-10).
+tty_available() {
+  { exec 3<"${ADR_STD_TTY:-/dev/tty}"; } 2>/dev/null || return 1
+  exec 3<&-
+}
+
+# Ação que o install tomaria num destino classificado, sem executar nada (RF-10).
+dry_run_action() { # id classe
+  case "$2" in
+    absent)  echo "instalaria" ;;
+    ours)    if [ "$LINK" -eq 1 ] || [ "$(state_agent_mode "$1")" = "link" ]; then echo "atualizaria (link)"; else echo "atualizaria"; fi ;;
+    repo-link) echo "registraria sem alterar" ;;
+    foreign-adr-std)
+      if [ "$ADOPT" -eq 1 ]; then echo "adotaria (com backup)"
+      elif tty_available; then echo "perguntaria"
+      else echo "pularia (sem-terminal; use --adopt)"; fi ;;
+    *) echo "pularia (outra-skill)" ;;
+  esac
+}
+
 cmd_install() {
   parse_args "$@"
   [ -f "$SRC/skill/SKILL.md" ] || die 1 "skill não encontrada em $SRC/skill"
@@ -336,28 +526,56 @@ cmd_install() {
   fi
   [ ${#AGENTS[@]} -gt 0 ] || choose_agents
 
-  local id dest
-  local done_targets=" "
+  local id dest class rc prev first_id
+  local done_targets=" " results="" skipped="" any_ok=0
   for id in "${AGENTS[@]}"; do
     dest="$(target_for "$id")"
     is_detected "$id" || echo "  ! $id não foi encontrado neste computador; instalando mesmo assim"
-    case "$done_targets" in *" $dest "*) ;; *)
-      done_targets="$done_targets$dest "
-      if [ "$DRY" -eq 1 ]; then
-        echo "  (simulação) instalaria adr-std $(version) em $dest"
-      else
-        install_to "$dest" || return $?
-      fi
-      ;;
+    case "$done_targets" in
+      *" $dest "*)
+        # pasta compartilhada já tratada: não classifica nem age de novo (RF-12)
+        [ "$DRY" -eq 1 ] && continue
+        prev="$(printf '%s' "$results" | awk -F'\t' -v d="$dest" '$1 == d { print $2 "\t" $3; exit }')"
+        case "${prev%%$'\t'*}" in
+          skipped:*) ;;
+          *) first_id="${prev#*$'\t'}"
+             state_add_agent "$id" "$dest" "$(state_agent_mode "$first_id")" ;;
+        esac ;;
+      *)
+        done_targets="$done_targets$dest "
+        class="$(classify_dest "$dest")"
+        if [ "$DRY" -eq 1 ]; then
+          echo "  (simulação) $dest: $class -> $(dry_run_action "$id" "$class")"
+          continue
+        fi
+        act_on_dest "$id" "$class" "$dest"; rc=$?
+        results="$results$dest"$'\t'"$ACT_RESULT"$'\t'"$id"$'\n'
+        if [ "$rc" -eq 0 ]; then any_ok=1; else skipped="$skipped$dest"$'\t'"${ACT_RESULT#skipped:}"$'\n'; fi ;;
     esac
-    [ "$DRY" -eq 1 ] || state_add_agent "$id" "$dest"
   done
   install_commands
-  if [ "$DRY" -eq 0 ]; then
+  if [ "$DRY" -eq 0 ] && [ "$any_ok" -eq 1 ]; then
     state_put version "$(version)"
     state_put mode "$([ "$LINK" -eq 1 ] && echo link || echo copy)"
     echo "Pronto. Abra uma nova sessão do agente para carregar a skill."
   fi
+  if [ -n "$skipped" ]; then
+    local reason
+    echo "Destinos pulados (nada foi alterado neles):"
+    while IFS=$'\t' read -r dest reason; do
+      [ -n "$dest" ] || continue
+      case "$reason" in
+        sem-terminal)       echo "  ! $dest: $reason; é um adr-std não instalado por este comando e foi mantido (use --adopt para adotar com backup)" ;;
+        outra-skill)        echo "  ! $dest: $reason; existe e não foi instalada pelo adr-std" ;;
+        recusado)           echo "  ! $dest: $reason; a adoção foi recusada" ;;
+        backup-falhou)      echo "  ! $dest: $reason; não foi possível guardar a pasta existente" ;;
+        falha-na-instalacao) echo "  ! $dest: $reason; não foi possível gravar a skill" ;;
+        *)                  echo "  ! $dest: $reason" ;;
+      esac
+    done <<< "$skipped"
+    return 4
+  fi
+  return 0
 }
 
 state_del_agent() { # id
@@ -413,15 +631,31 @@ cmd_update() {
   local -a opts=()
   [ -n "$REQ_VERSION" ] && opts+=(--version "$REQ_VERSION")
   [ "$LINK" -eq 1 ] && opts+=(--link)
+  # D-10: destino em modo link já segue o repositório; trocar pela release o converteria em cópia
+  if [ "$LINK" -eq 0 ]; then
+    local -a keep=()
+    for id in "${ids[@]}"; do
+      # só agentes já registrados: o fallback para o `mode` global vale para linhas antigas, não para agentes novos
+      if state_agents | cut -f1 | grep -qxF -- "$id" && [ "$(state_agent_mode "$id")" = "link" ]; then
+        echo "  • $id: $(state_agents | awk -F'\t' -v id="$id" '$1 == id { print $2 }') já segue o repositório (modo link); não foi atualizado pela release"
+      else
+        keep+=("$id")
+      fi
+    done
+    ids=("${keep[@]+"${keep[@]}"}")
+  fi
   if [ "$DRY" -eq 1 ]; then
-    echo "  (simulação) atualizaria ${REQ_VERSION:-para a última versão} nos agentes: ${ids[*]}"
+    echo "  (simulação) atualizaria ${REQ_VERSION:-para a última versão} nos agentes: ${ids[*]-}"
     return 0
   fi
   local rc=0
-  ADR_STD_REMOTE=1 bash "$installer" "${opts[@]+"${opts[@]}"}" --agent "${ids[@]}" || rc=$?
-  [ "$rc" -eq 0 ] || return "$rc"
+  if [ ${#ids[@]} -gt 0 ]; then
+    ADR_STD_REMOTE=1 bash "$installer" "${opts[@]+"${opts[@]}"}" --agent "${ids[@]}" || rc=$?
+  fi
+  # D-17: o código 4 do instalador é aviso (houve pulo); a migração dos ADRs roda mesmo assim
+  [ "$rc" -eq 0 ] || [ "$rc" -eq 4 ] || return "$rc"
   [ "$NO_MIGRATE" -eq 1 ] || maybe_migrate
-  return 0
+  return "$rc"
 }
 
 # Lê uma linha do terminal (mesma regra do menu: ADR_STD_TTY ou /dev/tty) para REPLY_LINE.
@@ -498,10 +732,11 @@ cmd_status() {
     return 0
   fi
   echo "adr-std: skill instalada na versão $ver (comando $(version)); modo $(state_get mode)"
-  local id dest note
+  local id dest note mode
   while IFS=$'\t' read -r id dest; do
     if [ -L "$dest" ] || [ -f "$dest/SKILL.md" ]; then note="íntegra"; else note="danificada (pasta ausente ou incompleta)"; fi
-    printf '  %-15s %s  [%s]\n' "$id" "$dest" "$note"
+    mode="$(state_agent_mode "$id")"
+    printf '  %-15s %s  [%s%s]\n' "$id" "$dest" "$note" "${mode:+, $mode}"
   done < <(state_agents)
 }
 
@@ -718,7 +953,9 @@ Comandos:
       --agent a b        Agentes (separados por espaço ou vírgula); também aceita os nomes direto
       --all              Todos os agentes encontrados
       --link             Link para a fonte em vez de cópia (desenvolvimento)
-      --dry-run          Mostra o que faria, sem alterar nada
+      --adopt            Adota, com backup e sem perguntar, um adr-std já existente que não foi instalado por este comando
+      --dry-run          Mostra o que faria em cada pasta, sem alterar nada
+                         (pasta pulada por conflito: o resumo final lista o motivo e o comando sai com código 4)
       --version vX.Y.Z   Versão específica
   update                 Atualiza nos agentes já registrados (--agent inclui mais agentes)
       --no-migrate       Não calcula nem mostra o plano de migração dos ADRs (por omissão o update mostra o plano
@@ -784,4 +1021,4 @@ main() {
   esac
 }
 
-main "$@"; exit $?  # exit na mesma linha: o update pode trocar este arquivo enquanto roda
+[ -n "${ADR_STD_LIB:-}" ] || { main "$@"; exit $?; }  # exit na mesma linha: o update pode trocar este arquivo enquanto roda; ADR_STD_LIB=1 só carrega as funções (testes)
